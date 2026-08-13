@@ -1,12 +1,10 @@
-const CACHE_NAME = 'pacecoach-v1.8';
+const CACHE_NAME = 'pacecoach-v1.9';
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
   './icons/icon-192.svg',
-  './icons/icon-512.svg',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+  './icons/icon-512.svg'
 ];
 
 self.addEventListener('install', function (event) {
@@ -34,20 +32,39 @@ self.addEventListener('activate', function (event) {
   );
 });
 
+/* Ne met en cache et n'intercepte QUE les fichiers de l'app elle-meme
+   (meme origine : index.html, manifest.json, icones). Les tuiles de
+   carte OpenStreetMap et la librairie Leaflet, chargees depuis des
+   domaines externes, ne passent plus du tout par ce service worker :
+   le navigateur les gere directement avec son propre cache HTTP natif,
+   deja optimise et borne en taille. Cela evite une accumulation non
+   controlee de donnees (potentiellement des centaines de tuiles par
+   sortie de course) qui pouvait mettre l'app sous pression memoire et
+   provoquer un redemarrage silencieux de la page par Safari - cause
+   probable du popup "Retablir la saisie". */
 self.addEventListener('fetch', function (event) {
-  if (event.request.method !== 'GET') {
+  var req = event.request;
+
+  if (req.method !== 'GET') {
+    return;
+  }
+
+  var url = new URL(req.url);
+  var sameOrigin = (url.origin === self.location.origin);
+
+  if (!sameOrigin) {
     return;
   }
 
   event.respondWith(
-    fetch(event.request).then(function (response) {
+    fetch(req).then(function (response) {
       var copy = response.clone();
       caches.open(CACHE_NAME).then(function (cache) {
-        cache.put(event.request, copy);
+        cache.put(req, copy);
       });
       return response;
     }).catch(function () {
-      return caches.match(event.request).then(function (cached) {
+      return caches.match(req).then(function (cached) {
         return cached || caches.match('./index.html');
       });
     })
