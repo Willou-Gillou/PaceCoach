@@ -1,0 +1,1516 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>PaceCoach v1.8</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#0f1115">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PaceCoach">
+<link rel="apple-touch-icon" href="./icons/icon-192.svg">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  :root{
+    --bg:#0f1115; --panel:#161a22; --panel2:#1d2230; --accent:#3ddc97; --accent2:#ffb020;
+    --danger:#ff4d4f; --slow:#4da3ff; --fast:#ff4d4f; --ok:#3ddc97; --text:#eef1f6; --muted:#8b93a7;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;overscroll-behavior:none;
+    touch-action:manipulation;}
+  #app{display:flex;flex-direction:column;height:100vh;height:100dvh;}
+  header{padding:10px 14px;display:flex;align-items:center;justify-content:space-between;
+    background:var(--panel);border-bottom:1px solid #232838;}
+  header h1{font-size:15px;margin:0;font-weight:600;letter-spacing:.3px;}
+  header .ver{font-size:11px;color:var(--muted);}
+
+  #diag{background:#3a1d1d;color:#ffd0d0;padding:12px 14px;font-size:12px;line-height:1.6;
+    border-bottom:2px solid #ff4d4f;font-family:monospace;white-space:pre-wrap;word-break:break-word;}
+  #diag.ok{display:none;}
+  #diag b{color:#fff;}
+
+  #err-banner{background:#3a2f0d;color:#ffe08a;padding:8px 14px;font-size:11px;
+    border-bottom:1px solid #5a4a1a;line-height:1.4;white-space:pre-wrap;word-break:break-word;display:none;}
+  #err-banner.show{display:block;}
+  #build-tag{font-size:10px;color:#4a5266;text-align:center;padding:3px 0;background:#0d0f14;}
+  main{flex:1;overflow-y:auto;padding:12px 14px 100px;-webkit-overflow-scrolling:touch;}
+  .card{background:var(--panel);border-radius:14px;padding:14px;margin-bottom:12px;border:1px solid #232838;}
+  .card h2{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:0 0 10px;}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .row + .row{margin-top:10px;}
+  label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px;}
+  input[type=number], select{
+    background:#0d0f14;border:1px solid #2a2f3d;color:var(--text);border-radius:8px;
+    padding:9px 10px;font-size:15px;width:100%;
+  }
+  .unit-toggle{display:flex;background:#0d0f14;border-radius:10px;padding:3px;border:1px solid #2a2f3d;}
+  .unit-toggle button{flex:1;border:none;background:transparent;color:var(--muted);padding:8px 4px;
+    border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}
+  .unit-toggle button.active{background:var(--accent);color:#062017;}
+  .freq-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+  .freq-grid button{padding:9px 4px;border-radius:8px;border:1px solid #2a2f3d;background:#0d0f14;
+    color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;}
+  .freq-grid button.active{background:rgba(61,220,151,.15);color:var(--accent);border-color:var(--accent);}
+  .big-display{text-align:center;padding:18px 6px;position:relative;}
+  .big-display .pace-row{display:flex;align-items:center;justify-content:center;gap:10px;}
+  .big-display .pace{font-size:56px;font-weight:800;letter-spacing:1px;line-height:1;}
+  .big-display .sub{font-size:14px;color:var(--muted);margin-top:6px;}
+  #btn-set{width:44px;height:44px;border-radius:50%;border:2px solid var(--accent);background:rgba(61,220,151,.12);
+    color:var(--accent);font-size:11px;font-weight:800;cursor:pointer;display:inline-flex;
+    align-items:center;justify-content:center;flex:0 0 44px;}
+  .status-banner{margin-top:12px;padding:12px;border-radius:12px;text-align:center;font-weight:700;
+    font-size:16px;letter-spacing:.3px;transition:background .3s,color .3s;background:#0d0f14;color:var(--muted);}
+  .status-banner.ok{background:rgba(61,220,151,.15);color:var(--ok);}
+  .status-banner.slow{background:rgba(77,163,255,.15);color:var(--slow);}
+  .status-banner.fast{background:rgba(255,77,79,.15);color:var(--fast);}
+  .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center;margin-top:10px;}
+  .metrics div{background:#0d0f14;border-radius:10px;padding:8px 4px;}
+  .metrics .v{font-size:17px;font-weight:700;}
+  .metrics .l{font-size:10px;color:var(--muted);text-transform:uppercase;}
+  .gps-flag-row{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:6px;}
+  .gps-icon{width:10px;height:10px;border-radius:50%;background:#4a5266;flex:0 0 10px;
+    box-shadow:0 0 0 3px rgba(255,255,255,0.03);}
+  .gps-icon.green{background:#3ddc97;box-shadow:0 0 6px rgba(61,220,151,0.7);}
+  .gps-icon.orange{background:#ffb020;box-shadow:0 0 6px rgba(255,176,32,0.7);}
+  .gps-icon.red{background:#ff4d4f;box-shadow:0 0 6px rgba(255,77,79,0.7);}
+  .gps-flag{font-size:11px;color:var(--muted);text-align:center;}
+  .gps-flag.weak{color:var(--accent2);}
+
+  .mode-switch{display:flex;gap:6px;}
+  .mode-switch button{flex:1;padding:10px 4px;border-radius:12px;border:1px solid #2a2f3d;background:#0d0f14;
+    color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;}
+  .mode-switch button.active{background:rgba(61,220,151,.15);color:var(--accent);border-color:var(--accent);}
+
+  #leafletmap{width:100%;height:300px;border-radius:12px;border:1px solid #2a2f3d;background:#0d0f14;}
+  .leaflet-container{background:#0d0f14;}
+
+  #history-view-panel{display:none;background:#0d0f14;border-radius:10px;padding:10px 12px;margin-bottom:10px;
+    border:1px solid #2a3550;}
+  #history-view-panel .hv-row{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  #history-view-title{font-size:13px;font-weight:700;color:var(--text);}
+  #history-view-meta{font-size:11px;color:var(--muted);margin-top:3px;}
+  #history-view-panel button{background:var(--panel2);color:var(--muted);border:none;border-radius:8px;
+    padding:6px 10px;font-size:11px;cursor:pointer;white-space:nowrap;}
+
+  .history-item{background:#0d0f14;border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer;
+    border:1px solid #2a2f3d;}
+  .history-item:last-child{margin-bottom:0;}
+  .hi-top-row{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  .hi-name{font-size:13px;font-weight:600;color:var(--text);flex:1;}
+  .hi-btn-group{display:flex;gap:6px;flex:0 0 auto;}
+  .hi-rename-btn, .hi-delete-btn{background:var(--panel2);color:var(--muted);border:none;border-radius:8px;
+    padding:5px 9px;font-size:10px;cursor:pointer;white-space:nowrap;flex:0 0 auto;}
+  .hi-delete-btn{color:var(--danger);}
+  .hi-meta{font-size:11px;color:var(--muted);margin-top:3px;}
+
+  footer{position:fixed;bottom:0;left:0;right:0;padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+    background:linear-gradient(180deg,transparent,var(--bg) 30%);display:flex;gap:10px;z-index:50;}
+  .btn{flex:1;padding:14px 6px;border-radius:12px;border:none;font-size:15px;font-weight:700;cursor:pointer;
+    -webkit-appearance:none;appearance:none;touch-action:manipulation;}
+  .btn-start{background:var(--accent);color:#062017;}
+  .btn-stop{background:var(--danger);color:#fff;}
+  .btn-screen{background:var(--panel2);color:var(--text);flex:0 0 54px;font-size:16px;}
+  #blackout{position:fixed;inset:0;background:#000;z-index:999;display:none;flex-direction:column;
+    align-items:center;justify-content:center;color:#333;font-size:13px;text-align:center;}
+  #blackout.show{display:flex;}
+  #blackout .pulse{font-size:11px;color:#222;margin-top:14px;}
+  .toast{position:fixed;top:10px;left:50%;transform:translateX(-50%);background:#1d2230;color:var(--text);
+    padding:8px 14px;border-radius:20px;font-size:12px;z-index:1200;border:1px solid #2a2f3d;opacity:0;
+    transition:opacity .3s;pointer-events:none;max-width:88%;text-align:center;}
+  .toast.show{opacity:1;}
+  .help{font-size:11px;color:var(--muted);line-height:1.5;margin-top:4px;}
+</style>
+</head>
+<body>
+
+<div id="diag">
+<b>DIAGNOSTIC PACECOACH v1.8</b>
+Etape A (script minimal)   : <span id="diag-a">NON EXECUTEE</span>
+Etape B (script principal) : <span id="diag-c">NON EXECUTEE</span>
+Erreur capturee            : <span id="diag-err">aucune</span>
+Navigateur                  : <span id="diag-ua">-</span>
+</div>
+
+<script>
+try{
+  document.getElementById("diag-a").textContent = "OK";
+  document.getElementById("diag-ua").textContent = navigator.userAgent;
+}catch(e){}
+</script>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<div id="app">
+  <header>
+    <h1>PaceCoach</h1>
+    <span class="ver">v1.8</span>
+  </header>
+  <div id="build-tag"></div>
+  <div id="err-banner"></div>
+
+  <main>
+    <section id="panel-run" class="panel">
+      <div class="card big-display">
+        <div class="pace-row">
+          <div class="pace" id="live-pace">--:--</div>
+          <button type="button" id="btn-set" data-action="set-target" title="Definir l'allure cible sur l'allure actuelle">SET</button>
+        </div>
+        <div class="sub" id="live-sub">min/km - en attente de GPS</div>
+        <div class="status-banner" id="status-banner">Pret</div>
+        <div class="gps-flag-row">
+          <span class="gps-icon" id="gps-icon"></span>
+          <span class="gps-flag" id="gps-flag"></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="metrics">
+          <div><div class="v" id="m-dist">0.00</div><div class="l">km</div></div>
+          <div><div class="v" id="m-time">00:00</div><div class="l">duree</div></div>
+          <div><div class="v" id="m-avg">--:--</div><div class="l">allure moy.</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Type de coaching</h2>
+        <div class="mode-switch">
+          <button type="button" id="mode-hold" class="active" data-action="mode-hold">Tenue de vitesse</button>
+          <button type="button" id="mode-listen" data-action="mode-listen">Ecoute de vitesse</button>
+          <button type="button" id="mode-ghost" data-action="mode-ghost">Challenge fantome</button>
+        </div>
+      </div>
+
+      <div class="card" id="settings-hold">
+        <h2>Reglages - Tenue de vitesse</h2>
+        <div class="unit-toggle">
+          <button type="button" id="unit-pace" class="active" data-action="unit-hold-pace">min/km</button>
+          <button type="button" id="unit-kmh" data-action="unit-hold-kmh">km/h</button>
+        </div>
+        <div class="row" id="hold-pace-row" style="margin-top:10px">
+          <div style="flex:1"><label>Minutes</label><input type="number" id="hold-min" min="2" max="15" value="5" autocomplete="off"></div>
+          <div style="flex:1"><label>Secondes</label><input type="number" id="hold-sec" min="0" max="59" value="30" autocomplete="off"></div>
+        </div>
+        <div class="row" id="hold-kmh-row" style="display:none;margin-top:10px">
+          <div style="flex:1"><label>Vitesse (km/h)</label><input type="number" id="hold-kmh-val" min="3" max="25" step="0.1" value="11.0" autocomplete="off"></div>
+        </div>
+        <p class="help">Tolerance fixe : plus ou moins 15 secondes par km. Le bouton SET ci-dessus permet de fixer instantanement l'allure cible sur votre allure actuelle. Modifiable a tout moment, meme pendant la course.</p>
+      </div>
+
+      <div class="card" id="settings-listen" style="display:none">
+        <h2>Reglages - Ecoute de vitesse</h2>
+        <div class="unit-toggle">
+          <button type="button" id="unit-pace-l" class="active" data-action="unit-listen-pace">min/km</button>
+          <button type="button" id="unit-kmh-l" data-action="unit-listen-kmh">km/h</button>
+        </div>
+        <h2 style="margin-top:14px">Frequence des annonces</h2>
+        <div class="freq-grid">
+          <button type="button" data-f="10" class="freq active" data-action="freq">10 s</button>
+          <button type="button" data-f="15" class="freq" data-action="freq">15 s</button>
+          <button type="button" data-f="20" class="freq" data-action="freq">20 s</button>
+          <button type="button" data-f="30" class="freq" data-action="freq">30 s</button>
+        </div>
+        <p class="help">L'allure ou la vitesse courante est annoncee vocalement a l'intervalle choisi.</p>
+      </div>
+
+      <div class="card" id="settings-ghost" style="display:none">
+        <h2>Reglages - Challenge fantome</h2>
+        <p class="help" id="ghost-none-msg" style="display:none">Aucune course enregistree pour le moment. Terminez une course dans un autre mode pour pouvoir la choisir ensuite comme fantome.</p>
+        <select id="ghost-select" autocomplete="off"></select>
+        <p class="help">Votre position et celle du fantome (course passee selectionnee) s'affichent superposees sur la carte. L'ecart de temps ("en avance de..." / "en retard de...") est annonce vocalement toutes les 30 secondes.</p>
+      </div>
+
+      <div class="card">
+        <h2>Trajet</h2>
+        <div id="history-view-panel">
+          <div class="hv-row">
+            <div>
+              <div id="history-view-title"></div>
+              <div id="history-view-meta"></div>
+            </div>
+            <button type="button" data-action="close-history-view">Fermer</button>
+          </div>
+        </div>
+        <div id="leafletmap"></div>
+      </div>
+
+      <div class="card">
+        <h2>Historique des courses</h2>
+        <div id="history-list"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <button type="button" class="btn btn-screen" id="btn-black" data-action="blackout" title="Ecran noir">OFF</button>
+    <button type="button" class="btn btn-start" id="btn-start" data-action="start">Demarrer</button>
+    <button type="button" class="btn btn-stop" id="btn-stop" data-action="stop" style="display:none">Arreter</button>
+  </footer>
+</div>
+
+<div id="blackout" data-action="blackout-tap">
+  <div id="blackout-info">Ecran eteint - appuyez 3 fois rapidement pour revenir</div>
+  <div class="pulse" id="blackout-status">.</div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+window.PC_STEP_C = "NON EXECUTEE";
+window.PC_ERROR = "aucune";
+
+try {
+
+  window.addEventListener("error", function (e) {
+    try {
+      var eb = document.getElementById("err-banner");
+      var msg = "inconnue";
+      if (e && e.message) { msg = e.message; }
+      var loc = "";
+      if (e && e.filename) { loc = " (" + e.filename + ":" + e.lineno + ")"; }
+      if (eb) {
+        eb.className = "show";
+        eb.textContent = "Erreur JS: " + msg + loc;
+      }
+      var de = document.getElementById("diag-err");
+      if (de) { de.textContent = msg + loc; }
+    } catch (ignored) {}
+  });
+
+  var tag = document.getElementById("build-tag");
+  if (tag) {
+    var now = new Date();
+    tag.textContent = "build " + now.toISOString().slice(0, 16).replace("T", " ") + " UTC";
+  }
+
+  var state = {};
+  state.mode = "hold";
+  state.unitHold = "pace";
+  state.unitListen = "pace";
+  state.listenFreq = 10;
+  state.targetPaceSec = 330;
+  state.running = false;
+  state.startTime = null;
+  state.pausedAccum = 0;
+  state.totalDistanceM = 0;
+  state.speedBuffer = [];
+  state.emaSpeed = null;
+  state.lastEmaTime = null;
+  state.lastCoord = null;
+  state.path = [];
+  state.speedAnchor = null;
+  state.currentStatus = "idle";
+  state.lastAnnounceElapsed = -9999;
+  state.lastAlertBeepTime = 0;
+  state.ambientWatchId = null;
+  state.wakeLock = null;
+  state.blackout = false;
+  state.blackoutTapTimestamps = [];
+  state.stateCandidate = null;
+  state.stateCandidateCount = 0;
+  state.gpsState = "idle";
+  state.mapReady = false;
+  state.ghostRecord = null;
+  state.ghostRecordId = null;
+  state.lastGhostAnnounceElapsed = -9999;
+  state.ambientErrorNotified = false;
+  state.currentViewedHistoryId = null;
+  state.lastMapUpdateTime = 0;
+
+  var MAX_RUN_SPEED = 8.5;
+  var GOOD_ACCURACY = 20;
+  var MIN_ACCEPTABLE_ACCURACY = 30;
+  var WEAK_ACCEPTABLE_ACCURACY = 60;
+  var SPEED_REJECT_ACCURACY = 35;
+  var STEP_MIN = 3;
+  var STEP_MAX = 12;
+  var STEP_ACC_FACTOR = 0.5;
+  var ANCHOR_STOP_MS = 5000;
+  var HYSTERESIS_SEC = 15;
+  var DEBOUNCE_SAMPLES = 3;
+  var MEDIAN_WINDOW = 6;
+  var MAX_ACCEL = 3.2;
+  var GHOST_ANNOUNCE_SEC = 30;
+  var HISTORY_KEY = "pacecoach_history";
+  var MIN_SAVE_DISTANCE_M = 50;
+  var MAX_HISTORY = 30;
+  var BLACKOUT_TAP_WINDOW_MS = 1200;
+  var BLACKOUT_TAPS_NEEDED = 3;
+  var MAP_UPDATE_MIN_MS_IDLE = 3000;
+  var MAP_UPDATE_MIN_MS_RUNNING = 1000;
+
+  function byId(id) {
+    return document.getElementById(id);
+  }
+
+  function pad2(n) {
+    if (n < 10) { return "0" + n; }
+    return "" + n;
+  }
+
+  function fmtPace(secPerKm) {
+    if (!isFinite(secPerKm) || secPerKm <= 0) { return "--:--"; }
+    var m = Math.floor(secPerKm / 60);
+    var s = Math.round(secPerKm % 60);
+    if (s === 60) { s = 0; m = m + 1; }
+    return pad2(m) + ":" + pad2(s);
+  }
+
+  function fmtTime(totalSec) {
+    var h = Math.floor(totalSec / 3600);
+    var m = Math.floor((totalSec % 3600) / 60);
+    var s = Math.floor(totalSec % 60);
+    var out = pad2(m) + ":" + pad2(s);
+    if (h > 0) { out = pad2(h) + ":" + out; }
+    return out;
+  }
+
+  function fmtDateTime(d) {
+    var day = pad2(d.getDate());
+    var month = pad2(d.getMonth() + 1);
+    var year = d.getFullYear();
+    var hh = pad2(d.getHours());
+    var mm = pad2(d.getMinutes());
+    return day + "/" + month + "/" + year + " a " + hh + "h" + mm;
+  }
+
+  function speedToPace(v) {
+    if (v > 0.05) { return 1000 / v; }
+    return Infinity;
+  }
+
+  function paceToSpeed(p) {
+    if (p > 0) { return 1000 / p; }
+    return 0;
+  }
+
+  function paceSpeechWords(secPerKm) {
+    if (!isFinite(secPerKm) || secPerKm <= 0) { return "en attente de signal"; }
+    var m = Math.floor(secPerKm / 60);
+    var s = Math.round(secPerKm % 60);
+    if (s === 60) { s = 0; m = m + 1; }
+    var minWord = (m === 1) ? "minute" : "minutes";
+    var secWord = (s === 1) ? "seconde" : "secondes";
+    if (m === 0) {
+      return s + " " + secWord + " par kilom\u00e8tre";
+    }
+    if (s === 0) {
+      return m + " " + minWord + " par kilom\u00e8tre";
+    }
+    return m + " " + minWord + " " + s + " " + secWord + " par kilom\u00e8tre";
+  }
+
+  function kmhSpeechWords(kmh) {
+    var whole = Math.floor(kmh);
+    var tenth = Math.round((kmh - whole) * 10);
+    if (tenth === 10) { tenth = 0; whole = whole + 1; }
+    if (tenth === 0) {
+      return whole + " kilom\u00e8tres heure";
+    }
+    return whole + " virgule " + tenth + " kilom\u00e8tres heure";
+  }
+
+  function durationSpeechWords(sec) {
+    var s = Math.round(Math.abs(sec));
+    var m = Math.floor(s / 60);
+    var rs = s % 60;
+    if (m === 0) {
+      var secW = (rs === 1) ? "seconde" : "secondes";
+      return rs + " " + secW;
+    }
+    var minW = (m === 1) ? "minute" : "minutes";
+    if (rs === 0) {
+      return m + " " + minW;
+    }
+    var secW2 = (rs === 1) ? "seconde" : "secondes";
+    return m + " " + minW + " " + rs + " " + secW2;
+  }
+
+  function showToast(msg, ms) {
+    if (!ms) { ms = 1800; }
+    var t = byId("toast");
+    if (!t) { return; }
+    t.textContent = msg;
+    t.className = "toast show";
+    clearTimeout(t._h);
+    t._h = setTimeout(function () {
+      t.className = "toast";
+    }, ms);
+  }
+
+  function toRad(d) {
+    return d * Math.PI / 180;
+  }
+
+  function haversine(lat1, lon1, lat2, lon2) {
+    var R = 6371000;
+    var dLat = toRad(lat2 - lat1);
+    var dLon = toRad(lon2 - lon1);
+    var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
+
+  function median(arr) {
+    var s = arr.slice();
+    s.sort(function (a, b) { return a - b; });
+    var mid = Math.floor(s.length / 2);
+    if (s.length % 2) { return s[mid]; }
+    return (s[mid - 1] + s[mid]) / 2;
+  }
+
+  function stepThresholdFor(accuracy) {
+    var v = accuracy * STEP_ACC_FACTOR;
+    if (v < STEP_MIN) { v = STEP_MIN; }
+    if (v > STEP_MAX) { v = STEP_MAX; }
+    return v;
+  }
+
+  var audioCtx = null;
+
+  function ensureAudio() {
+    try {
+      if (!audioCtx) {
+        var Ctx = window.AudioContext || window.webkitAudioContext;
+        if (Ctx) { audioCtx = new Ctx(); }
+      }
+      if (audioCtx && audioCtx.state === "suspended") {
+        audioCtx.resume().then(function () {}, function () {});
+      }
+      return audioCtx;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function beep(freq) {
+    try {
+      var ctx = ensureAudio();
+      if (!ctx) { return; }
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.28);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.3);
+    } catch (e) {}
+  }
+
+  function speak(text) {
+    try {
+      if (!("speechSynthesis" in window)) { return; }
+      window.speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(text);
+      u.lang = "fr-FR";
+      u.rate = 1.02;
+      u.pitch = 1.0;
+      window.speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+
+  function requestWakeLock() {
+    try {
+      if ("wakeLock" in navigator) {
+        navigator.wakeLock.request("screen").then(function (wl) {
+          state.wakeLock = wl;
+        }, function () {});
+      }
+    } catch (e) {}
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && state.running) {
+      requestWakeLock();
+    }
+  });
+
+  function selectMode(which) {
+    var previousMode = state.mode;
+    state.mode = which;
+    var bHold = byId("mode-hold");
+    var bListen = byId("mode-listen");
+    var bGhost = byId("mode-ghost");
+    var sHold = byId("settings-hold");
+    var sListen = byId("settings-listen");
+    var sGhost = byId("settings-ghost");
+    var btnSet = byId("btn-set");
+    if (bHold) { bHold.className = (which === "hold") ? "active" : ""; }
+    if (bListen) { bListen.className = (which === "listen") ? "active" : ""; }
+    if (bGhost) { bGhost.className = (which === "ghost") ? "active" : ""; }
+    if (sHold) { sHold.style.display = (which === "hold") ? "block" : "none"; }
+    if (sListen) { sListen.style.display = (which === "listen") ? "block" : "none"; }
+    if (sGhost) { sGhost.style.display = (which === "ghost") ? "block" : "none"; }
+    if (btnSet) { btnSet.style.display = (which === "hold") ? "inline-flex" : "none"; }
+    if (which === "ghost") {
+      renderGhostSelect();
+      if (lGhostMarker) { try { lmap.removeLayer(lGhostMarker); } catch (e2) {} lGhostMarker = null; }
+    }
+    if (which !== previousMode) {
+      if (which === "hold") {
+        speak("Tenue de vitesse s\u00e9lectionn\u00e9e");
+      } else if (which === "listen") {
+        speak("Ecoute de vitesse s\u00e9lectionn\u00e9e");
+      } else if (which === "ghost") {
+        speak("Challenge fant\u00f4me s\u00e9lectionn\u00e9");
+      }
+    }
+  }
+
+  function readTargetFromInputs() {
+    if (state.unitHold === "pace") {
+      var m = parseInt(byId("hold-min").value || "0", 10);
+      var s = parseInt(byId("hold-sec").value || "0", 10);
+      state.targetPaceSec = Math.max(60, m * 60 + s);
+    } else {
+      var kmh = parseFloat(byId("hold-kmh-val").value || "0");
+      state.targetPaceSec = speedToPace(kmh / 3.6);
+    }
+  }
+
+  function doSetTargetToCurrent() {
+    var v = state.emaSpeed;
+    if (v === null) {
+      showToast("Pas encore de vitesse mesuree");
+      return;
+    }
+    if (state.unitHold === "pace") {
+      var p = speedToPace(v);
+      if (!isFinite(p)) { showToast("Vitesse insuffisante pour definir une allure"); return; }
+      var m = Math.floor(p / 60);
+      var s = Math.round(p % 60);
+      if (s === 60) { s = 0; m = m + 1; }
+      byId("hold-min").value = m;
+      byId("hold-sec").value = s;
+      showToast("Allure cible mise a jour: " + fmtPace(p) + " /km");
+    } else {
+      var kmh = v * 3.6;
+      byId("hold-kmh-val").value = kmh.toFixed(1);
+      showToast("Vitesse cible mise a jour: " + kmh.toFixed(1) + " km/h");
+    }
+    readTargetFromInputs();
+    state.stateCandidate = null;
+    state.stateCandidateCount = 0;
+  }
+
+  function loadHistory() {
+    try {
+      var raw = window.localStorage.getItem(HISTORY_KEY);
+      if (!raw) { return []; }
+      var parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) { return []; }
+      return parsed;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveHistory(arr) {
+    try {
+      window.localStorage.setItem(HISTORY_KEY, JSON.stringify(arr));
+    } catch (e) {}
+  }
+
+  function saveCurrentRunToHistory() {
+    try {
+      if (!state.startTime) { return; }
+      if (state.path.length < 2) { return; }
+      if (state.totalDistanceM < MIN_SAVE_DISTANCE_M) { return; }
+      var startDate = new Date(state.startTime);
+      var record = {
+        id: state.startTime,
+        name: "Trace du " + fmtDateTime(startDate),
+        dateISO: startDate.toISOString(),
+        distanceM: state.totalDistanceM,
+        durationSec: elapsedSeconds(),
+        path: state.path.slice()
+      };
+      var hist = loadHistory();
+      hist.unshift(record);
+      if (hist.length > MAX_HISTORY) { hist = hist.slice(0, MAX_HISTORY); }
+      saveHistory(hist);
+      renderHistoryList();
+      showToast("Course enregistree dans l historique");
+    } catch (e) {}
+  }
+
+  function renameHistoryRun(idVal) {
+    try {
+      var hist = loadHistory();
+      var rec = null;
+      var i = 0;
+      while (i < hist.length) {
+        if (String(hist[i].id) === String(idVal)) { rec = hist[i]; break; }
+        i = i + 1;
+      }
+      if (!rec) { return; }
+      var newName = window.prompt("Nouveau nom de la course :", rec.name);
+      if (newName === null) { return; }
+      var trimmed = newName.replace(/^\s+|\s+$/g, "");
+      if (trimmed.length === 0) { return; }
+      rec.name = trimmed;
+      saveHistory(hist);
+      renderHistoryList();
+      renderGhostSelect();
+      if (state.currentViewedHistoryId !== null && String(state.currentViewedHistoryId) === String(idVal)) {
+        var title = byId("history-view-title");
+        if (title) { title.textContent = trimmed; }
+      }
+      showToast("Course renommee");
+    } catch (e) {}
+  }
+
+  function deleteHistoryRun(idVal) {
+    try {
+      var hist = loadHistory();
+      var rec = null;
+      var idx = -1;
+      var i = 0;
+      while (i < hist.length) {
+        if (String(hist[i].id) === String(idVal)) { rec = hist[i]; idx = i; break; }
+        i = i + 1;
+      }
+      if (!rec) { return; }
+      var ok = window.confirm("Supprimer definitivement \"" + rec.name + "\" ?");
+      if (!ok) { return; }
+      hist.splice(idx, 1);
+      saveHistory(hist);
+      renderHistoryList();
+      renderGhostSelect();
+      if (state.currentViewedHistoryId !== null && String(state.currentViewedHistoryId) === String(idVal)) {
+        closeHistoryView();
+      }
+      if (state.ghostRecordId !== null && String(state.ghostRecordId) === String(idVal)) {
+        state.ghostRecord = null;
+        state.ghostRecordId = null;
+      }
+      showToast("Course supprimee");
+    } catch (e) {}
+  }
+
+  function renderHistoryList() {
+    try {
+      var list = byId("history-list");
+      if (!list) { return; }
+      var hist = loadHistory();
+      if (hist.length === 0) {
+        list.innerHTML = "";
+        var p = document.createElement("p");
+        p.className = "help";
+        p.textContent = "Aucune course enregistree pour le moment. Terminez une course pour la voir apparaitre ici.";
+        list.appendChild(p);
+        return;
+      }
+      list.innerHTML = "";
+      var i = 0;
+      while (i < hist.length) {
+        var rec = hist[i];
+        var item = document.createElement("div");
+        item.className = "history-item";
+        item.setAttribute("data-action", "view-history");
+        item.setAttribute("data-id", String(rec.id));
+
+        var topRow = document.createElement("div");
+        topRow.className = "hi-top-row";
+
+        var nameEl = document.createElement("div");
+        nameEl.className = "hi-name";
+        nameEl.textContent = rec.name;
+
+        var btnGroup = document.createElement("div");
+        btnGroup.className = "hi-btn-group";
+
+        var renameBtn = document.createElement("button");
+        renameBtn.type = "button";
+        renameBtn.className = "hi-rename-btn";
+        renameBtn.setAttribute("data-action", "rename-history");
+        renameBtn.setAttribute("data-id", String(rec.id));
+        renameBtn.textContent = "Renommer";
+
+        var deleteBtn = document.createElement("button");
+        deleteBtn.type = "button";
+        deleteBtn.className = "hi-delete-btn";
+        deleteBtn.setAttribute("data-action", "delete-history");
+        deleteBtn.setAttribute("data-id", String(rec.id));
+        deleteBtn.textContent = "Supprimer";
+
+        btnGroup.appendChild(renameBtn);
+        btnGroup.appendChild(deleteBtn);
+
+        topRow.appendChild(nameEl);
+        topRow.appendChild(btnGroup);
+
+        var metaEl = document.createElement("div");
+        metaEl.className = "hi-meta";
+        var distKm = (rec.distanceM / 1000).toFixed(2);
+        metaEl.textContent = distKm + " km - " + fmtTime(rec.durationSec);
+
+        item.appendChild(topRow);
+        item.appendChild(metaEl);
+        list.appendChild(item);
+        i = i + 1;
+      }
+    } catch (e) {}
+  }
+
+  function renderGhostSelect() {
+    try {
+      var sel = byId("ghost-select");
+      var msgNone = byId("ghost-none-msg");
+      if (!sel) { return; }
+      var hist = loadHistory();
+      sel.innerHTML = "";
+      if (hist.length === 0) {
+        if (msgNone) { msgNone.style.display = "block"; }
+        sel.style.display = "none";
+        return;
+      }
+      if (msgNone) { msgNone.style.display = "none"; }
+      sel.style.display = "block";
+      var optDefault = document.createElement("option");
+      optDefault.value = "";
+      optDefault.textContent = "Choisir une course fantome...";
+      sel.appendChild(optDefault);
+      var i = 0;
+      while (i < hist.length) {
+        var rec = hist[i];
+        var opt = document.createElement("option");
+        opt.value = String(rec.id);
+        var distKm = (rec.distanceM / 1000).toFixed(2);
+        opt.textContent = rec.name + " (" + distKm + " km)";
+        sel.appendChild(opt);
+        i = i + 1;
+      }
+    } catch (e) {}
+  }
+
+  function buildGhostProfile(record) {
+    var path = record.path;
+    if (!path || path.length < 2) { return null; }
+    var cumDist = [0];
+    var cumTime = [0];
+    var startT = path[0].t;
+    var i = 1;
+    var acc = 0;
+    while (i < path.length) {
+      var d = haversine(path[i - 1].lat, path[i - 1].lon, path[i].lat, path[i].lon);
+      acc = acc + d;
+      cumDist.push(acc);
+      cumTime.push((path[i].t - startT) / 1000);
+      i = i + 1;
+    }
+    return { path: path, cumDist: cumDist, cumTime: cumTime };
+  }
+
+  function interpAtDistance(cumDist, arr, d) {
+    var n = cumDist.length;
+    if (n === 0) { return null; }
+    if (d <= cumDist[0]) { return arr[0]; }
+    if (d >= cumDist[n - 1]) { return arr[n - 1]; }
+    var i = 0;
+    while (i < n - 1 && cumDist[i + 1] < d) { i = i + 1; }
+    var d0 = cumDist[i];
+    var d1 = cumDist[i + 1];
+    var v0 = arr[i];
+    var v1 = arr[i + 1];
+    if (d1 === d0) { return v0; }
+    var frac = (d - d0) / (d1 - d0);
+    return v0 + (v1 - v0) * frac;
+  }
+
+  function ghostLatLonAtDistance(profile, d) {
+    var cumDist = profile.cumDist;
+    var path = profile.path;
+    var n = cumDist.length;
+    if (d <= cumDist[0]) { return { lat: path[0].lat, lon: path[0].lon }; }
+    if (d >= cumDist[n - 1]) { return { lat: path[n - 1].lat, lon: path[n - 1].lon }; }
+    var i = 0;
+    while (i < n - 1 && cumDist[i + 1] < d) { i = i + 1; }
+    var d0 = cumDist[i];
+    var d1 = cumDist[i + 1];
+    var frac = (d1 === d0) ? 0 : (d - d0) / (d1 - d0);
+    var lat = path[i].lat + (path[i + 1].lat - path[i].lat) * frac;
+    var lon = path[i].lon + (path[i + 1].lon - path[i].lon) * frac;
+    return { lat: lat, lon: lon };
+  }
+
+  function loadGhostByIdValue(idVal) {
+    if (!idVal) { state.ghostRecord = null; state.ghostRecordId = null; return; }
+    var hist = loadHistory();
+    var i = 0;
+    while (i < hist.length) {
+      if (String(hist[i].id) === String(idVal)) {
+        state.ghostRecord = buildGhostProfile(hist[i]);
+        state.ghostRecordId = hist[i].id;
+        showToast("Fantome charge: " + hist[i].name);
+        return;
+      }
+      i = i + 1;
+    }
+    state.ghostRecord = null;
+    state.ghostRecordId = null;
+  }
+
+  var lmap = null;
+  var lmarker = null;
+  var lpolyline = null;
+  var lGhostMarker = null;
+  var lHistoryPolyline = null;
+  var lHasCentered = false;
+
+  function initLeafletMap() {
+    try {
+      if (typeof L === "undefined") {
+        setTimeout(initLeafletMap, 300);
+        return;
+      }
+      var mapDiv = byId("leafletmap");
+      if (!mapDiv) { return; }
+      lmap = L.map(mapDiv, {
+        zoomControl: true,
+        attributionControl: true
+      }).setView([48.8566, 2.3522], 16);
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap contributors"
+      }).addTo(lmap);
+
+      lpolyline = L.polyline([], { color: "#3ddc97", weight: 4, opacity: 0.9 }).addTo(lmap);
+
+      lmarker = L.circleMarker([48.8566, 2.3522], {
+        radius: 8,
+        color: "#ffb020",
+        weight: 2,
+        fillColor: "#ffb020",
+        fillOpacity: 0.9
+      }).addTo(lmap);
+
+      state.mapReady = true;
+      setTimeout(function () {
+        try { lmap.invalidateSize(); } catch (e2) {}
+      }, 200);
+    } catch (e) {
+      showToast("Erreur initialisation carte: " + e.message, 3000);
+    }
+  }
+
+  function updateMapPosition(lat, lon) {
+    try {
+      if (!state.mapReady || !lmap) { return; }
+      var nowMs = Date.now();
+      var minGap = state.running ? MAP_UPDATE_MIN_MS_RUNNING : MAP_UPDATE_MIN_MS_IDLE;
+      if (nowMs - state.lastMapUpdateTime < minGap) { return; }
+      state.lastMapUpdateTime = nowMs;
+
+      var latLng = [lat, lon];
+      if (lmarker) { lmarker.setLatLng(latLng); }
+      if (state.running && lpolyline) { lpolyline.addLatLng(latLng); }
+
+      if (state.running && state.mode === "ghost" && state.ghostRecord) {
+        var g = ghostLatLonAtDistance(state.ghostRecord, state.totalDistanceM);
+        if (!lGhostMarker) {
+          lGhostMarker = L.circleMarker([g.lat, g.lon], {
+            radius: 8,
+            color: "#8b93a7",
+            weight: 2,
+            fillColor: "#8b93a7",
+            fillOpacity: 0.85
+          }).addTo(lmap);
+        } else {
+          lGhostMarker.setLatLng([g.lat, g.lon]);
+        }
+      }
+
+      var zoomToUse = lHasCentered ? lmap.getZoom() : 17;
+      lmap.setView(latLng, zoomToUse);
+      lHasCentered = true;
+    } catch (e) {}
+  }
+
+  function viewHistoryRun(idVal) {
+    try {
+      var hist = loadHistory();
+      var rec = null;
+      var i = 0;
+      while (i < hist.length) {
+        if (String(hist[i].id) === String(idVal)) { rec = hist[i]; break; }
+        i = i + 1;
+      }
+      if (!rec || !lmap) { return; }
+      if (lHistoryPolyline) { try { lmap.removeLayer(lHistoryPolyline); } catch (e2) {} }
+      var latlngs = [];
+      var j = 0;
+      while (j < rec.path.length) {
+        latlngs.push([rec.path[j].lat, rec.path[j].lon]);
+        j = j + 1;
+      }
+      lHistoryPolyline = L.polyline(latlngs, { color: "#4da3ff", weight: 4, opacity: 0.85, dashArray: "6 6" }).addTo(lmap);
+      lmap.fitBounds(lHistoryPolyline.getBounds(), { padding: [20, 20] });
+
+      state.currentViewedHistoryId = rec.id;
+      var panel = byId("history-view-panel");
+      var title = byId("history-view-title");
+      var meta = byId("history-view-meta");
+      if (panel && title && meta) {
+        title.textContent = rec.name;
+        var distKm = (rec.distanceM / 1000).toFixed(2);
+        meta.textContent = distKm + " km - duree " + fmtTime(rec.durationSec) + " - " + new Date(rec.dateISO).toLocaleString();
+        panel.style.display = "block";
+      }
+    } catch (e) {}
+  }
+
+  function closeHistoryView() {
+    try {
+      if (lHistoryPolyline && lmap) {
+        lmap.removeLayer(lHistoryPolyline);
+        lHistoryPolyline = null;
+      }
+      state.currentViewedHistoryId = null;
+      var panel = byId("history-view-panel");
+      if (panel) { panel.style.display = "none"; }
+    } catch (e) {}
+  }
+
+  function setGpsIcon(tier) {
+    var icon = byId("gps-icon");
+    if (!icon) { return; }
+    icon.className = "gps-icon " + tier;
+  }
+
+  function updateGpsFlag(text, cls) {
+    var gf = byId("gps-flag");
+    if (gf) {
+      gf.textContent = text;
+      gf.className = "gps-flag" + (cls ? " " + cls : "");
+    }
+  }
+
+  function updateSignalFromAccuracy(accuracy) {
+    if (accuracy <= GOOD_ACCURACY) {
+      setGpsIcon("green");
+      state.gpsState = "fixed";
+      updateGpsFlag("Position fixee - precision: " + Math.round(accuracy) + " m", "");
+    } else if (accuracy <= WEAK_ACCEPTABLE_ACCURACY) {
+      setGpsIcon("orange");
+      state.gpsState = "weak";
+      updateGpsFlag("Signal moyen - precision: " + Math.round(accuracy) + " m", "weak");
+    } else {
+      setGpsIcon("red");
+      state.gpsState = "searching";
+      updateGpsFlag("Signal faible - precision: " + Math.round(accuracy) + " m", "weak");
+    }
+  }
+
+  function updateSpeedAnchor(lat, lon, t, accuracy) {
+    if (accuracy > SPEED_REJECT_ACCURACY) { return; }
+
+    if (!state.speedAnchor) {
+      state.speedAnchor = { lat: lat, lon: lon, t: t, acc: accuracy };
+      return;
+    }
+
+    var d = haversine(state.speedAnchor.lat, state.speedAnchor.lon, lat, lon);
+    var dtMs = t - state.speedAnchor.t;
+    var worstAcc = Math.max(accuracy, state.speedAnchor.acc);
+    var threshold = stepThresholdFor(worstAcc);
+
+    if (d < threshold) {
+      if (dtMs > ANCHOR_STOP_MS) {
+        state.emaSpeed = 0;
+        state.speedBuffer = [];
+        state.speedAnchor = { lat: lat, lon: lon, t: t, acc: accuracy };
+      }
+      return;
+    }
+
+    var dtSec = dtMs / 1000;
+    if (dtSec > 0.3) {
+      var instSpeed = d / dtSec;
+      if (instSpeed <= MAX_RUN_SPEED && instSpeed >= 0) {
+        if (state.emaSpeed !== null) {
+          var dtAccel = Math.max(dtSec, 0.3);
+          var maxDelta = MAX_ACCEL * dtAccel;
+          var delta = instSpeed - state.emaSpeed;
+          if (delta > maxDelta) { instSpeed = state.emaSpeed + maxDelta; }
+          else if (delta < (0 - maxDelta)) { instSpeed = state.emaSpeed - maxDelta; }
+        }
+
+        state.speedBuffer.push(instSpeed);
+        if (state.speedBuffer.length > MEDIAN_WINDOW) { state.speedBuffer.shift(); }
+        var med = median(state.speedBuffer);
+
+        var alpha = 0.20;
+        if (accuracy <= 12) { alpha = 0.40; }
+        else if (accuracy <= 20) { alpha = 0.30; }
+        else if (accuracy <= 30) { alpha = 0.22; }
+        else { alpha = 0.14; }
+
+        if (state.emaSpeed === null) {
+          state.emaSpeed = med;
+        } else {
+          state.emaSpeed = alpha * med + (1 - alpha) * state.emaSpeed;
+        }
+        state.lastEmaTime = t;
+      }
+    }
+
+    state.speedAnchor = { lat: lat, lon: lon, t: t, acc: accuracy };
+  }
+
+  function processPosition(pos) {
+    try {
+      var lat = pos.coords.latitude;
+      var lon = pos.coords.longitude;
+      var accuracy = pos.coords.accuracy;
+      var t = pos.timestamp;
+
+      if (accuracy > WEAK_ACCEPTABLE_ACCURACY) {
+        return;
+      }
+
+      state.lastCoord = { lat: lat, lon: lon, t: t };
+
+      if (state.path.length > 0) {
+        var prevPt = state.path[state.path.length - 1];
+        var ddTotal = haversine(prevPt.lat, prevPt.lon, lat, lon);
+        if (ddTotal < 100) { state.totalDistanceM = state.totalDistanceM + ddTotal; }
+      }
+
+      state.path.push({ lat: lat, lon: lon, t: t });
+      if (state.path.length > 2000) { state.path.shift(); }
+
+      updateSpeedAnchor(lat, lon, t, accuracy);
+    } catch (e) {}
+  }
+
+  function onAmbientPosition(pos) {
+    try {
+      var accuracy = pos.coords.accuracy;
+      updateSignalFromAccuracy(accuracy);
+      updateMapPosition(pos.coords.latitude, pos.coords.longitude);
+      if (state.running) {
+        processPosition(pos);
+      }
+    } catch (e) {}
+  }
+
+  function onAmbientError(err) {
+    var code = err ? err.code : 0;
+    var msg = "Erreur GPS inconnue";
+    if (code === 1) {
+      msg = "Acces a la position refuse. Autorisez la localisation pour ce site dans les reglages du navigateur.";
+    } else if (code === 2) {
+      msg = "Position indisponible. Verifiez que vous etes a l exterieur ou que le GPS est active.";
+    } else if (code === 3) {
+      msg = "Recherche du signal GPS en cours...";
+    }
+    setGpsIcon("red");
+    updateGpsFlag(msg, "weak");
+    if ((code === 1 || code === 2) && !state.ambientErrorNotified) {
+      state.ambientErrorNotified = true;
+      showToast(msg, 4000);
+    }
+  }
+
+  function startAmbientGps() {
+    try {
+      if (!("geolocation" in navigator)) {
+        setGpsIcon("red");
+        updateGpsFlag("Geolocalisation indisponible sur cet appareil", "weak");
+        return;
+      }
+      setGpsIcon("orange");
+      updateGpsFlag("Initialisation du GPS...", "weak");
+      navigator.geolocation.getCurrentPosition(onAmbientPosition, onAmbientError, {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 20000
+      });
+      state.ambientWatchId = navigator.geolocation.watchPosition(onAmbientPosition, onAmbientError, {
+        enableHighAccuracy: true,
+        maximumAge: 1000,
+        timeout: 20000
+      });
+    } catch (e) {}
+  }
+
+  function elapsedSeconds() {
+    if (!state.startTime) { return 0; }
+    return (Date.now() - state.startTime - state.pausedAccum) / 1000;
+  }
+
+  function setBanner(cls, text) {
+    var b = byId("status-banner");
+    if (!b) { return; }
+    b.className = "status-banner" + (cls ? " " + cls : "");
+    b.textContent = text;
+  }
+
+  function evaluateHoldMode(currentSpeed) {
+    readTargetFromInputs();
+    var currentPace = speedToPace(currentSpeed);
+    var targetPace = state.targetPaceSec;
+    var diff = currentPace - targetPace;
+    var candidate;
+    if (!isFinite(currentPace)) {
+      candidate = state.currentStatus;
+    } else if (diff > HYSTERESIS_SEC) {
+      candidate = "slow";
+    } else if (diff < (0 - HYSTERESIS_SEC)) {
+      candidate = "fast";
+    } else {
+      candidate = "ok";
+    }
+
+    if (candidate === state.stateCandidate) {
+      state.stateCandidateCount = state.stateCandidateCount + 1;
+    } else {
+      state.stateCandidate = candidate;
+      state.stateCandidateCount = 1;
+    }
+
+    if (state.stateCandidateCount >= DEBOUNCE_SAMPLES && state.currentStatus !== candidate) {
+      state.currentStatus = candidate;
+      if (candidate === "slow") {
+        speak("Trop lent");
+        setBanner("slow", "TROP LENT");
+      } else if (candidate === "fast") {
+        speak("Trop vite");
+        setBanner("fast", "TROP VITE");
+      } else {
+        speak("Allure stabilis\u00e9e");
+        setBanner("ok", "ALLURE STABILISEE");
+      }
+      state.lastAlertBeepTime = 0;
+    }
+    var now = elapsedSeconds();
+    if (state.currentStatus === "slow" || state.currentStatus === "fast") {
+      if (now - state.lastAlertBeepTime >= 5) {
+        beep(state.currentStatus === "slow" ? 620 : 880);
+        state.lastAlertBeepTime = now;
+      }
+    }
+  }
+
+  function evaluateListenMode(currentSpeed) {
+    var now = elapsedSeconds();
+    if (now - state.lastAnnounceElapsed >= state.listenFreq) {
+      state.lastAnnounceElapsed = now;
+      var msg;
+      if (state.unitListen === "pace") {
+        var p = speedToPace(currentSpeed);
+        msg = paceSpeechWords(p);
+      } else {
+        var kmh = currentSpeed * 3.6;
+        msg = kmhSpeechWords(kmh);
+      }
+      speak(msg);
+      var label;
+      if (state.unitListen === "pace") {
+        label = fmtPace(speedToPace(currentSpeed)) + " /km";
+      } else {
+        label = (currentSpeed * 3.6).toFixed(1) + " km/h";
+      }
+      setBanner("", "ECOUTE: " + label);
+    }
+  }
+
+  function evaluateGhostMode() {
+    if (!state.ghostRecord) {
+      setBanner("", "Choisissez une course fantome dans les reglages");
+      return;
+    }
+    var now = elapsedSeconds();
+    var ghostTime = interpAtDistance(state.ghostRecord.cumDist, state.ghostRecord.cumTime, state.totalDistanceM);
+    if (ghostTime === null) { return; }
+    var diff = ghostTime - now;
+    var label;
+    if (diff >= 0) {
+      label = "EN AVANCE DE " + fmtTime(diff);
+    } else {
+      label = "EN RETARD DE " + fmtTime(0 - diff);
+    }
+    setBanner(diff >= 0 ? "ok" : "fast", label);
+
+    if (now - state.lastGhostAnnounceElapsed >= GHOST_ANNOUNCE_SEC) {
+      state.lastGhostAnnounceElapsed = now;
+      var words = durationSpeechWords(diff);
+      if (diff >= 0) {
+        speak("En avance de " + words);
+      } else {
+        speak("En retard de " + words);
+      }
+    }
+  }
+
+  var loopHandle = null;
+
+  function tick() {
+    try {
+      var v = state.emaSpeed;
+      var liveEl = byId("live-pace");
+      var subEl = byId("live-sub");
+      if (v !== null && liveEl && subEl) {
+        if (state.unitHold === "kmh" && state.mode === "hold") {
+          liveEl.textContent = (v * 3.6).toFixed(1);
+          subEl.textContent = "km/h";
+        } else {
+          liveEl.textContent = fmtPace(speedToPace(v));
+          subEl.textContent = "min/km";
+        }
+      }
+      var mDist = byId("m-dist");
+      if (mDist) { mDist.textContent = (state.totalDistanceM / 1000).toFixed(2); }
+      var mTime = byId("m-time");
+      if (mTime) { mTime.textContent = fmtTime(elapsedSeconds()); }
+      var elapsed = elapsedSeconds();
+      var mAvg = byId("m-avg");
+      if (state.totalDistanceM > 20 && elapsed > 3 && mAvg) {
+        var avgSpeed = state.totalDistanceM / elapsed;
+        mAvg.textContent = fmtPace(speedToPace(avgSpeed));
+      }
+      if (state.mode === "hold") {
+        if (v !== null) { evaluateHoldMode(v); }
+      } else if (state.mode === "listen") {
+        if (v !== null) { evaluateListenMode(v); }
+      } else if (state.mode === "ghost") {
+        evaluateGhostMode();
+      }
+      if (state.blackout) {
+        var bs = byId("blackout-status");
+        var sb = byId("status-banner");
+        if (bs) {
+          var vLabel = "--:--";
+          if (v !== null) { vLabel = fmtPace(speedToPace(v)) + " /km"; }
+          var sbText = "";
+          if (sb) { sbText = sb.textContent; }
+          bs.textContent = vLabel + "  -  " + sbText;
+        }
+      }
+    } catch (e) {}
+  }
+
+  function doStart() {
+    try {
+      ensureAudio();
+      readTargetFromInputs();
+      state.running = true;
+      state.startTime = Date.now();
+      state.pausedAccum = 0;
+      state.totalDistanceM = 0;
+      state.path = [];
+      state.speedAnchor = null;
+      state.speedBuffer = [];
+      state.emaSpeed = null;
+      state.lastEmaTime = null;
+      state.lastCoord = null;
+      state.currentStatus = "idle";
+      state.stateCandidate = null;
+      state.stateCandidateCount = 0;
+      state.lastAnnounceElapsed = -9999;
+      state.lastAlertBeepTime = 0;
+      state.lastGhostAnnounceElapsed = -9999;
+      lHasCentered = false;
+      if (lpolyline) {
+        try { lpolyline.setLatLngs([]); } catch (e2) {}
+      }
+      if (lGhostMarker) {
+        try { lmap.removeLayer(lGhostMarker); } catch (e3) {}
+        lGhostMarker = null;
+      }
+
+      var bStart = byId("btn-start");
+      var bStop = byId("btn-stop");
+      if (bStart) { bStart.style.display = "none"; }
+      if (bStop) { bStop.style.display = "block"; }
+      setBanner("", "Suivi en cours...");
+
+      requestWakeLock();
+
+      loopHandle = setInterval(tick, 1000);
+      if (state.mode === "hold") {
+        speak("Mode tenue de vitesse activ\u00e9");
+      } else if (state.mode === "listen") {
+        speak("Mode \u00e9coute de vitesse activ\u00e9");
+      } else {
+        speak("Mode challenge fant\u00f4me activ\u00e9");
+      }
+    } catch (e) {
+      showToast("Erreur au demarrage: " + e.message);
+    }
+  }
+
+  function doStop() {
+    try {
+      state.running = false;
+      if (loopHandle) { clearInterval(loopHandle); }
+      if (state.wakeLock) {
+        state.wakeLock.release().then(function () {}, function () {});
+        state.wakeLock = null;
+      }
+      var bStart = byId("btn-start");
+      var bStop = byId("btn-stop");
+      if (bStart) { bStart.style.display = "block"; }
+      if (bStop) { bStop.style.display = "none"; }
+      setBanner("", "Arrete");
+      speak("Course arr\u00eat\u00e9e");
+      saveCurrentRunToHistory();
+    } catch (e) {}
+  }
+
+  function doBlackoutOpen() {
+    state.blackout = true;
+    state.blackoutTapTimestamps = [];
+    var bo = byId("blackout");
+    if (bo) { bo.className = "show"; }
+  }
+
+  function doBlackoutClose() {
+    state.blackout = false;
+    state.blackoutTapTimestamps = [];
+    var bo = byId("blackout");
+    if (bo) { bo.className = ""; }
+  }
+
+  function handleBlackoutTap() {
+    var nowT = Date.now();
+    state.blackoutTapTimestamps.push(nowT);
+    var kept = [];
+    var i = 0;
+    while (i < state.blackoutTapTimestamps.length) {
+      if (nowT - state.blackoutTapTimestamps[i] <= BLACKOUT_TAP_WINDOW_MS) {
+        kept.push(state.blackoutTapTimestamps[i]);
+      }
+      i = i + 1;
+    }
+    state.blackoutTapTimestamps = kept;
+    if (state.blackoutTapTimestamps.length >= BLACKOUT_TAPS_NEEDED) {
+      doBlackoutClose();
+    }
+  }
+
+  function handleAction(action, el) {
+    if (action === "start") { doStart(); return; }
+    if (action === "stop") { doStop(); return; }
+    if (action === "blackout") { doBlackoutOpen(); return; }
+    if (action === "blackout-tap") { handleBlackoutTap(); return; }
+    if (action === "mode-hold") { selectMode("hold"); return; }
+    if (action === "mode-listen") { selectMode("listen"); return; }
+    if (action === "mode-ghost") { selectMode("ghost"); return; }
+    if (action === "set-target") { doSetTargetToCurrent(); return; }
+    if (action === "view-history") {
+      var id = el.getAttribute("data-id");
+      viewHistoryRun(id);
+      return;
+    }
+    if (action === "rename-history") {
+      var idr = el.getAttribute("data-id");
+      renameHistoryRun(idr);
+      return;
+    }
+    if (action === "delete-history") {
+      var idd = el.getAttribute("data-id");
+      deleteHistoryRun(idd);
+      return;
+    }
+    if (action === "close-history-view") { closeHistoryView(); return; }
+    if (action === "unit-hold-pace") {
+      state.unitHold = "pace";
+      byId("unit-pace").className = "active";
+      byId("unit-kmh").className = "";
+      byId("hold-pace-row").style.display = "flex";
+      byId("hold-kmh-row").style.display = "none";
+      return;
+    }
+    if (action === "unit-hold-kmh") {
+      state.unitHold = "kmh";
+      byId("unit-kmh").className = "active";
+      byId("unit-pace").className = "";
+      byId("hold-pace-row").style.display = "none";
+      byId("hold-kmh-row").style.display = "flex";
+      return;
+    }
+    if (action === "unit-listen-pace") {
+      state.unitListen = "pace";
+      byId("unit-pace-l").className = "active";
+      byId("unit-kmh-l").className = "";
+      return;
+    }
+    if (action === "unit-listen-kmh") {
+      state.unitListen = "kmh";
+      byId("unit-kmh-l").className = "active";
+      byId("unit-pace-l").className = "";
+      return;
+    }
+    if (action === "freq") {
+      var freqBtns = document.querySelectorAll(".freq");
+      var k = 0;
+      while (k < freqBtns.length) {
+        freqBtns[k].className = "freq";
+        k = k + 1;
+      }
+      el.className = "freq active";
+      state.listenFreq = parseInt(el.getAttribute("data-f"), 10);
+      return;
+    }
+  }
+
+  document.body.addEventListener("click", function (ev) {
+    var el = ev.target;
+    while (el && el !== document.body) {
+      var action = el.getAttribute ? el.getAttribute("data-action") : null;
+      if (action) {
+        handleAction(action, el);
+        return;
+      }
+      el = el.parentNode;
+    }
+  }, false);
+
+  var ghostSelectEl = byId("ghost-select");
+  if (ghostSelectEl) {
+    ghostSelectEl.addEventListener("change", function () {
+      loadGhostByIdValue(ghostSelectEl.value);
+    }, false);
+  }
+
+  initLeafletMap();
+  renderHistoryList();
+  startAmbientGps();
+
+  window.PC_STEP_C = "OK";
+  var diagC = document.getElementById("diag-c");
+  if (diagC) { diagC.textContent = "OK"; }
+  var diag = document.getElementById("diag");
+  if (diag) { diag.className = "ok"; }
+
+} catch (fatalErr) {
+  try {
+    var de2 = document.getElementById("diag-err");
+    if (de2) { de2.textContent = "ERREUR FATALE: " + fatalErr.message; }
+    var eb2 = document.getElementById("err-banner");
+    if (eb2) {
+      eb2.className = "show";
+      eb2.textContent = "Erreur fatale a l initialisation: " + fatalErr.message;
+    }
+  } catch (ignored2) {}
+}
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(function (error) {
+      console.warn('Service worker non disponible:', error);
+    });
+  });
+}
+</script>
+
+</body>
+</html>
