@@ -318,7 +318,6 @@ try {
   state.currentStatus = "idle";
   state.lastAnnounceElapsed = 0;
   state.lastAnnounceDistanceM = 0;
-  state.lastIntervalAvgSpeed = null;
   state.lastAlertBeepTime = 0;
   state.ambientWatchId = null;
   state.wakeLock = null;
@@ -1256,7 +1255,6 @@ try {
       var avgSpeed = (intervalElapsed > 0) ? (intervalDistanceM / intervalElapsed) : currentSpeed;
       state.lastAnnounceElapsed = now;
       state.lastAnnounceDistanceM = state.totalDistanceM;
-      state.lastIntervalAvgSpeed = avgSpeed;
       var msg;
       if (state.unitListen === "pace") {
         var p = speedToPace(avgSpeed);
@@ -1305,11 +1303,10 @@ try {
   function tick() {
     try {
       var v = state.emaSpeed;
-      var liveSpeedSource = (state.mode === "listen") ? state.lastIntervalAvgSpeed : v;
       var liveEl = byId("live-pace");
       var subEl = byId("live-sub");
-      if (liveEl && subEl) {
-        var liveDisp = formatSpeedForDisplay(liveSpeedSource);
+      if (v !== null && liveEl && subEl) {
+        var liveDisp = formatSpeedForDisplay(v);
         liveEl.textContent = liveDisp.text;
         subEl.textContent = liveDisp.unit;
       }
@@ -1334,7 +1331,7 @@ try {
         var bs = byId("blackout-status");
         var sb = byId("status-banner");
         if (bs) {
-          var boDisp = formatSpeedForDisplay(liveSpeedSource);
+          var boDisp = formatSpeedForDisplay(v);
           var vLabel = boDisp.text + " " + boDisp.unit;
           var sbText = "";
           if (sb) { sbText = sb.textContent; }
@@ -1363,7 +1360,6 @@ try {
       state.stateCandidateCount = 0;
       state.lastAnnounceElapsed = 0;
       state.lastAnnounceDistanceM = 0;
-      state.lastIntervalAvgSpeed = null;
       state.lastAlertBeepTime = 0;
       state.lastGhostAnnounceElapsed = -9999;
       lHasCentered = false;
