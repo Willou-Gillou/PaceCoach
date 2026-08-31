@@ -215,7 +215,7 @@ try{
           <button type="button" data-f="20" class="freq" data-action="freq">20 s</button>
           <button type="button" data-f="30" class="freq" data-action="freq">30 s</button>
         </div>
-        <p class="help">L'allure ou la vitesse courante est annoncee vocalement a l'intervalle choisi.</p>
+        <p class="help">L'allure ou la vitesse moyenne sur l'intervalle ecoule est annoncee vocalement a chaque intervalle choisi (ex : moyenne des 10 dernieres secondes pour un intervalle de 10 s).</p>
       </div>
 
       <div class="card" id="settings-ghost" style="display:none">
@@ -309,7 +309,8 @@ try {
   state.path = [];
   state.speedAnchor = null;
   state.currentStatus = "idle";
-  state.lastAnnounceElapsed = -9999;
+  state.lastAnnounceElapsed = 0;
+  state.lastAnnounceDistanceM = 0;
   state.lastAlertBeepTime = 0;
   state.ambientWatchId = null;
   state.wakeLock = null;
@@ -1241,18 +1242,22 @@ try {
 
   function evaluateListenMode(currentSpeed) {
     var now = elapsedSeconds();
-    if (now - state.lastAnnounceElapsed >= state.listenFreq) {
+    var intervalElapsed = now - state.lastAnnounceElapsed;
+    if (intervalElapsed >= state.listenFreq) {
+      var intervalDistanceM = state.totalDistanceM - state.lastAnnounceDistanceM;
+      var avgSpeed = (intervalElapsed > 0) ? (intervalDistanceM / intervalElapsed) : currentSpeed;
       state.lastAnnounceElapsed = now;
+      state.lastAnnounceDistanceM = state.totalDistanceM;
       var msg;
       if (state.unitListen === "pace") {
-        var p = speedToPace(currentSpeed);
+        var p = speedToPace(avgSpeed);
         msg = paceSpeechWords(p);
       } else {
-        var kmh = currentSpeed * 3.6;
+        var kmh = avgSpeed * 3.6;
         msg = kmhSpeechWords(kmh);
       }
       speak(msg);
-      var disp = formatSpeedForDisplay(currentSpeed);
+      var disp = formatSpeedForDisplay(avgSpeed);
       var label = disp.text + " " + disp.unit;
       setBanner("", "ECOUTE: " + label);
     }
@@ -1346,7 +1351,8 @@ try {
       state.currentStatus = "idle";
       state.stateCandidate = null;
       state.stateCandidateCount = 0;
-      state.lastAnnounceElapsed = -9999;
+      state.lastAnnounceElapsed = 0;
+      state.lastAnnounceDistanceM = 0;
       state.lastAlertBeepTime = 0;
       state.lastGhostAnnounceElapsed = -9999;
       lHasCentered = false;
