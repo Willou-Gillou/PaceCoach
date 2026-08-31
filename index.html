@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
-<title>PaceCoach v2.0</title>
+<title>PaceCoach</title>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#0f1115">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -11,6 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="PaceCoach">
 <link rel="apple-touch-icon" href="./icons/icon-192.svg">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="./version.js"></script>
 <style>
   :root{
     --bg:#0f1115; --panel:#161a22; --panel2:#1d2230; --accent:#3ddc97; --accent2:#ffb020;
@@ -126,7 +127,7 @@
 <body>
 
 <div id="diag">
-<b>DIAGNOSTIC PACECOACH v2.0</b>
+<b>DIAGNOSTIC PACECOACH <span id="diag-ver">?</span></b>
 Etape A (script minimal)   : <span id="diag-a">NON EXECUTEE</span>
 Etape B (script principal) : <span id="diag-c">NON EXECUTEE</span>
 Erreur capturee            : <span id="diag-err">aucune</span>
@@ -137,6 +138,9 @@ Navigateur                  : <span id="diag-ua">-</span>
 try{
   document.getElementById("diag-a").textContent = "OK";
   document.getElementById("diag-ua").textContent = navigator.userAgent;
+  var pcVer = (typeof APP_VERSION !== "undefined") ? APP_VERSION : "?";
+  document.title = "PaceCoach v" + pcVer;
+  document.getElementById("diag-ver").textContent = "v" + pcVer;
 }catch(e){}
 </script>
 
@@ -145,7 +149,7 @@ try{
 <div id="app">
   <header>
     <h1>PaceCoach</h1>
-    <span class="ver">v2.0</span>
+    <span class="ver" id="header-ver"></span>
   </header>
   <div id="build-tag"></div>
   <div id="err-banner"></div>
@@ -276,6 +280,11 @@ try {
       if (de) { de.textContent = msg + loc; }
     } catch (ignored) {}
   });
+
+  var headerVerEl = document.getElementById("header-ver");
+  if (headerVerEl) {
+    headerVerEl.textContent = "v" + ((typeof APP_VERSION !== "undefined") ? APP_VERSION : "?");
+  }
 
   var tag = document.getElementById("build-tag");
   if (tag) {

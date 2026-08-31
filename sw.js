@@ -1,8 +1,10 @@
-const CACHE_NAME = 'pacecoach-v2.0';
+importScripts('./version.js');
+const CACHE_NAME = 'pacecoach-v' + self.APP_VERSION;
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
+  './version.js',
   './icons/icon-192.svg',
   './icons/icon-512.svg'
 ];
