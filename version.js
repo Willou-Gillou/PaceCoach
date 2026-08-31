@@ -4,4 +4,4 @@
 // changement (algorithme, UI, comportement, correctif) : c'est ce qui
 // force le service worker a invalider son cache et a livrer la mise a
 // jour aux PWA deja installees sur iPhone.
-self.APP_VERSION = "2.3";
+self.APP_VERSION = "2.4";
