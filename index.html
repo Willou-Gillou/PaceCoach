@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
-<title>PaceCoach v1.8</title>
+<title>PaceCoach v2.0</title>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#0f1115">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -126,7 +126,7 @@
 <body>
 
 <div id="diag">
-<b>DIAGNOSTIC PACECOACH v1.8</b>
+<b>DIAGNOSTIC PACECOACH v2.0</b>
 Etape A (script minimal)   : <span id="diag-a">NON EXECUTEE</span>
 Etape B (script principal) : <span id="diag-c">NON EXECUTEE</span>
 Erreur capturee            : <span id="diag-err">aucune</span>
@@ -145,7 +145,7 @@ try{
 <div id="app">
   <header>
     <h1>PaceCoach</h1>
-    <span class="ver">v1.8</span>
+    <span class="ver">v2.0</span>
   </header>
   <div id="build-tag"></div>
   <div id="err-banner"></div>
@@ -154,7 +154,7 @@ try{
     <section id="panel-run" class="panel">
       <div class="card big-display">
         <div class="pace-row">
-          <div class="pace" id="live-pace">--:--</div>
+          <div class="pace" id="live-pace">--:--.-</div>
           <button type="button" id="btn-set" data-action="set-target" title="Definir l'allure cible sur l'allure actuelle">SET</button>
         </div>
         <div class="sub" id="live-sub">min/km - en attente de GPS</div>
@@ -293,8 +293,8 @@ try {
   state.startTime = null;
   state.pausedAccum = 0;
   state.totalDistanceM = 0;
-  state.speedBuffer = [];
   state.emaSpeed = null;
+  state.kalmanP = null;
   state.lastEmaTime = null;
   state.lastCoord = null;
   state.path = [];
@@ -328,8 +328,13 @@ try {
   var ANCHOR_STOP_MS = 5000;
   var HYSTERESIS_SEC = 15;
   var DEBOUNCE_SAMPLES = 3;
-  var MEDIAN_WINDOW = 6;
-  var MAX_ACCEL = 3.2;
+  // Filtre de Kalman 1D sur la vitesse : combine la mesure (vitesse GPS
+  // native Doppler quand disponible, sinon vitesse deduite des positions)
+  // avec un modele de bruit de process qui autorise les changements
+  // d'allure reels sans laisser passer le bruit de mesure.
+  var KALMAN_PROCESS_NOISE = 0.35;   // (m/s)^2 gagnes par seconde ecoulee
+  var NATIVE_SPEED_VARIANCE = 0.05;  // (m/s)^2 bruit de base de la vitesse Doppler du GPS
+  var OUTLIER_SIGMA = 6;             // rejette une mesure aberrante au-dela de N ecarts-types
   var GHOST_ANNOUNCE_SEC = 30;
   var HISTORY_KEY = "pacecoach_history";
   var MIN_SAVE_DISTANCE_M = 50;
@@ -354,6 +359,26 @@ try {
     var s = Math.round(secPerKm % 60);
     if (s === 60) { s = 0; m = m + 1; }
     return pad2(m) + ":" + pad2(s);
+  }
+
+  function fmtPaceDecimal(secPerKm) {
+    if (!isFinite(secPerKm) || secPerKm <= 0) { return "--:--.-"; }
+    var totalDeciSec = Math.round(secPerKm * 10);
+    var m = Math.floor(totalDeciSec / 600);
+    var rem = totalDeciSec - m * 600;
+    var s = Math.floor(rem / 10);
+    var d = rem % 10;
+    return pad2(m) + ":" + pad2(s) + "." + d;
+  }
+
+  function formatSpeedForDisplay(v) {
+    if (v === null) { return { text: "--:--.-", unit: "min/km" }; }
+    var showKmh = (state.mode === "hold" && state.unitHold === "kmh") ||
+      (state.mode === "listen" && state.unitListen === "kmh");
+    if (showKmh) {
+      return { text: (v * 3.6).toFixed(1), unit: "km/h" };
+    }
+    return { text: fmtPaceDecimal(speedToPace(v)), unit: "min/km" };
   }
 
   function fmtTime(totalSec) {
@@ -448,14 +473,6 @@ try {
     var dLon = toRad(lon2 - lon1);
     var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
     return 2 * R * Math.asin(Math.sqrt(a));
-  }
-
-  function median(arr) {
-    var s = arr.slice();
-    s.sort(function (a, b) { return a - b; });
-    var mid = Math.floor(s.length / 2);
-    if (s.length % 2) { return s[mid]; }
-    return (s[mid - 1] + s[mid]) / 2;
   }
 
   function stepThresholdFor(accuracy) {
@@ -1006,60 +1023,76 @@ try {
     }
   }
 
-  function updateSpeedAnchor(lat, lon, t, accuracy) {
+  // Estime la vitesse courante avec un filtre de Kalman 1D.
+  // Source de mesure privilegiee : coords.speed, la vitesse Doppler
+  // calculee directement par la puce GPS (bien plus precise et stable
+  // qu'une simple derivee de positions successives, car elle ne depend
+  // pas du bruit de positionnement horizontal). Si cette valeur n'est
+  // pas fournie par l'appareil, on retombe sur l'ancienne methode par
+  // difference de positions (avec seuil de pas et detection d'arret).
+  function updateSpeedEstimate(lat, lon, t, accuracy, nativeSpeedMs) {
     if (accuracy > SPEED_REJECT_ACCURACY) { return; }
 
-    if (!state.speedAnchor) {
+    var hasNative = (typeof nativeSpeedMs === "number") && isFinite(nativeSpeedMs) && nativeSpeedMs >= 0;
+
+    if (state.lastEmaTime === null) {
+      state.emaSpeed = hasNative ? Math.min(nativeSpeedMs, MAX_RUN_SPEED) : 0;
+      state.kalmanP = hasNative ? NATIVE_SPEED_VARIANCE : 1.0;
+      state.lastEmaTime = t;
       state.speedAnchor = { lat: lat, lon: lon, t: t, acc: accuracy };
       return;
     }
 
-    var d = haversine(state.speedAnchor.lat, state.speedAnchor.lon, lat, lon);
-    var dtMs = t - state.speedAnchor.t;
-    var worstAcc = Math.max(accuracy, state.speedAnchor.acc);
-    var threshold = stepThresholdFor(worstAcc);
+    var dtMs = t - state.lastEmaTime;
+    if (dtMs <= 0) { return; }
+    var dtSec = Math.min(dtMs / 1000, 10);
 
-    if (d < threshold) {
-      if (dtMs > ANCHOR_STOP_MS) {
-        state.emaSpeed = 0;
-        state.speedBuffer = [];
+    var measurement = null;
+    var measurementVariance = null;
+
+    if (hasNative) {
+      measurement = nativeSpeedMs;
+      var accFactor = Math.min(Math.max(accuracy / 15, 0.5), 4);
+      measurementVariance = NATIVE_SPEED_VARIANCE * accFactor;
+      state.speedAnchor = { lat: lat, lon: lon, t: t, acc: accuracy };
+    } else if (state.speedAnchor) {
+      var d = haversine(state.speedAnchor.lat, state.speedAnchor.lon, lat, lon);
+      var dtAnchorMs = t - state.speedAnchor.t;
+      var worstAcc = Math.max(accuracy, state.speedAnchor.acc);
+      var threshold = stepThresholdFor(worstAcc);
+      if (d < threshold) {
+        if (dtAnchorMs > ANCHOR_STOP_MS) {
+          measurement = 0;
+          measurementVariance = 0.05;
+          state.speedAnchor = { lat: lat, lon: lon, t: t, acc: accuracy };
+        }
+      } else {
+        var dtAnchorSec = dtAnchorMs / 1000;
+        if (dtAnchorSec > 0.3) {
+          measurement = d / dtAnchorSec;
+          measurementVariance = 0.3 + Math.pow(worstAcc / dtAnchorSec, 2) * 0.5;
+        }
         state.speedAnchor = { lat: lat, lon: lon, t: t, acc: accuracy };
       }
+    }
+
+    if (measurement === null) { return; }
+    if (measurement < 0) { measurement = 0; }
+    if (measurement > MAX_RUN_SPEED) { measurement = MAX_RUN_SPEED; }
+
+    state.kalmanP = state.kalmanP + KALMAN_PROCESS_NOISE * dtSec;
+
+    var innovation = measurement - state.emaSpeed;
+    var innovationStd = Math.sqrt(state.kalmanP + measurementVariance);
+    if (Math.abs(innovation) > OUTLIER_SIGMA * innovationStd) {
+      state.lastEmaTime = t;
       return;
     }
 
-    var dtSec = dtMs / 1000;
-    if (dtSec > 0.3) {
-      var instSpeed = d / dtSec;
-      if (instSpeed <= MAX_RUN_SPEED && instSpeed >= 0) {
-        if (state.emaSpeed !== null) {
-          var dtAccel = Math.max(dtSec, 0.3);
-          var maxDelta = MAX_ACCEL * dtAccel;
-          var delta = instSpeed - state.emaSpeed;
-          if (delta > maxDelta) { instSpeed = state.emaSpeed + maxDelta; }
-          else if (delta < (0 - maxDelta)) { instSpeed = state.emaSpeed - maxDelta; }
-        }
-
-        state.speedBuffer.push(instSpeed);
-        if (state.speedBuffer.length > MEDIAN_WINDOW) { state.speedBuffer.shift(); }
-        var med = median(state.speedBuffer);
-
-        var alpha = 0.20;
-        if (accuracy <= 12) { alpha = 0.40; }
-        else if (accuracy <= 20) { alpha = 0.30; }
-        else if (accuracy <= 30) { alpha = 0.22; }
-        else { alpha = 0.14; }
-
-        if (state.emaSpeed === null) {
-          state.emaSpeed = med;
-        } else {
-          state.emaSpeed = alpha * med + (1 - alpha) * state.emaSpeed;
-        }
-        state.lastEmaTime = t;
-      }
-    }
-
-    state.speedAnchor = { lat: lat, lon: lon, t: t, acc: accuracy };
+    var k = state.kalmanP / (state.kalmanP + measurementVariance);
+    state.emaSpeed = state.emaSpeed + k * innovation;
+    state.kalmanP = (1 - k) * state.kalmanP;
+    state.lastEmaTime = t;
   }
 
   function processPosition(pos) {
@@ -1084,7 +1117,7 @@ try {
       state.path.push({ lat: lat, lon: lon, t: t });
       if (state.path.length > 2000) { state.path.shift(); }
 
-      updateSpeedAnchor(lat, lon, t, accuracy);
+      updateSpeedEstimate(lat, lon, t, accuracy, pos.coords.speed);
     } catch (e) {}
   }
 
@@ -1133,7 +1166,7 @@ try {
       });
       state.ambientWatchId = navigator.geolocation.watchPosition(onAmbientPosition, onAmbientError, {
         enableHighAccuracy: true,
-        maximumAge: 1000,
+        maximumAge: 0,
         timeout: 20000
       });
     } catch (e) {}
@@ -1210,12 +1243,8 @@ try {
         msg = kmhSpeechWords(kmh);
       }
       speak(msg);
-      var label;
-      if (state.unitListen === "pace") {
-        label = fmtPace(speedToPace(currentSpeed)) + " /km";
-      } else {
-        label = (currentSpeed * 3.6).toFixed(1) + " km/h";
-      }
+      var disp = formatSpeedForDisplay(currentSpeed);
+      var label = disp.text + " " + disp.unit;
       setBanner("", "ECOUTE: " + label);
     }
   }
@@ -1256,13 +1285,9 @@ try {
       var liveEl = byId("live-pace");
       var subEl = byId("live-sub");
       if (v !== null && liveEl && subEl) {
-        if (state.unitHold === "kmh" && state.mode === "hold") {
-          liveEl.textContent = (v * 3.6).toFixed(1);
-          subEl.textContent = "km/h";
-        } else {
-          liveEl.textContent = fmtPace(speedToPace(v));
-          subEl.textContent = "min/km";
-        }
+        var liveDisp = formatSpeedForDisplay(v);
+        liveEl.textContent = liveDisp.text;
+        subEl.textContent = liveDisp.unit;
       }
       var mDist = byId("m-dist");
       if (mDist) { mDist.textContent = (state.totalDistanceM / 1000).toFixed(2); }
@@ -1272,7 +1297,7 @@ try {
       var mAvg = byId("m-avg");
       if (state.totalDistanceM > 20 && elapsed > 3 && mAvg) {
         var avgSpeed = state.totalDistanceM / elapsed;
-        mAvg.textContent = fmtPace(speedToPace(avgSpeed));
+        mAvg.textContent = fmtPaceDecimal(speedToPace(avgSpeed));
       }
       if (state.mode === "hold") {
         if (v !== null) { evaluateHoldMode(v); }
@@ -1285,8 +1310,8 @@ try {
         var bs = byId("blackout-status");
         var sb = byId("status-banner");
         if (bs) {
-          var vLabel = "--:--";
-          if (v !== null) { vLabel = fmtPace(speedToPace(v)) + " /km"; }
+          var boDisp = formatSpeedForDisplay(v);
+          var vLabel = boDisp.text + " " + boDisp.unit;
           var sbText = "";
           if (sb) { sbText = sb.textContent; }
           bs.textContent = vLabel + "  -  " + sbText;
@@ -1305,8 +1330,8 @@ try {
       state.totalDistanceM = 0;
       state.path = [];
       state.speedAnchor = null;
-      state.speedBuffer = [];
       state.emaSpeed = null;
+      state.kalmanP = null;
       state.lastEmaTime = null;
       state.lastCoord = null;
       state.currentStatus = "idle";

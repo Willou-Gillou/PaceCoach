@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pacecoach-v1.9';
+const CACHE_NAME = 'pacecoach-v2.0';
 const APP_SHELL = [
   './',
   './index.html',
