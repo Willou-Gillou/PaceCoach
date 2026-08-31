@@ -26,6 +26,10 @@
     background:var(--panel);border-bottom:1px solid #232838;}
   header h1{font-size:15px;margin:0;font-weight:600;letter-spacing:.3px;}
   header .ver{font-size:11px;color:var(--muted);}
+  .header-right{display:flex;align-items:center;gap:6px;}
+  .reload-btn{background:transparent;border:none;color:var(--muted);font-size:15px;line-height:1;
+    padding:4px 6px;cursor:pointer;border-radius:6px;-webkit-appearance:none;appearance:none;}
+  .reload-btn:active{color:var(--accent);background:rgba(61,220,151,.12);}
 
   #diag{background:#3a1d1d;color:#ffd0d0;padding:12px 14px;font-size:12px;line-height:1.6;
     border-bottom:2px solid #ff4d4f;font-family:monospace;white-space:pre-wrap;word-break:break-word;}
@@ -149,7 +153,10 @@ try{
 <div id="app">
   <header>
     <h1>PaceCoach</h1>
-    <span class="ver" id="header-ver"></span>
+    <div class="header-right">
+      <button type="button" id="btn-reload" class="reload-btn" data-action="force-reload" title="Recharger l'application (forcer la mise a jour)">&#8635;</button>
+      <span class="ver" id="header-ver"></span>
+    </div>
   </header>
   <div id="build-tag"></div>
   <div id="err-banner"></div>
@@ -1434,9 +1441,46 @@ try {
     }
   }
 
+  // Recharge forcee de l'app : desinscrit le service worker et vide les
+  // caches avant de re-naviguer avec une URL cache-bustee. Necessaire car
+  // une PWA lancee en plein ecran depuis l'ecran d'accueil iOS reste
+  // souvent suspendue en memoire par iOS et ne fait jamais de nouvelle
+  // requete reseau au retour au premier plan : sans navigation explicite
+  // comme celle-ci, une mise a jour peut rester invisible indefiniment
+  // meme apres un bump de version.
+  function forceReloadApp() {
+    try {
+      if (state.running) {
+        var ok = window.confirm("Une course est en cours. La recharger va l'interrompre sans l'enregistrer. Continuer ?");
+        if (!ok) { return; }
+      }
+      showToast("Rechargement de l'application...", 1500);
+      var unregisterAll = Promise.resolve();
+      if ("serviceWorker" in navigator) {
+        unregisterAll = navigator.serviceWorker.getRegistrations().then(function (regs) {
+          return Promise.all(regs.map(function (r) { return r.unregister(); }));
+        });
+      }
+      unregisterAll.then(function () {
+        if ("caches" in window) {
+          return caches.keys().then(function (keys) {
+            return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+          });
+        }
+      }).then(function () {
+        window.location.href = window.location.pathname + "?r=" + Date.now();
+      }).catch(function () {
+        window.location.href = window.location.pathname + "?r=" + Date.now();
+      });
+    } catch (e) {
+      window.location.reload();
+    }
+  }
+
   function handleAction(action, el) {
     if (action === "start") { doStart(); return; }
     if (action === "stop") { doStop(); return; }
+    if (action === "force-reload") { forceReloadApp(); return; }
     if (action === "blackout") { doBlackoutOpen(); return; }
     if (action === "blackout-tap") { handleBlackoutTap(); return; }
     if (action === "mode-hold") { selectMode("hold"); return; }
