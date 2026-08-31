@@ -21,3 +21,9 @@ sert la version mise en cache tant que `CACHE_NAME` ne change pas.
 
 Ne pas re-hardcoder de numero de version ailleurs dans `index.html` ou
 `sw.js` : toujours referencer `APP_VERSION`.
+
+## Workflow git
+
+Pousser directement sur `main` une fois le travail termine et valide,
+sans passer par une pull request, sauf demande explicite contraire de
+l'utilisateur dans la conversation en cours.
