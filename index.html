@@ -335,6 +335,7 @@ try {
   state.lastMapUpdateTime = 0;
 
   var MAX_RUN_SPEED = 8.5;
+  var STATIONARY_EMA_THRESHOLD = 0.3;
   var GOOD_ACCURACY = 20;
   var MIN_ACCEPTABLE_ACCURACY = 30;
   var WEAK_ACCEPTABLE_ACCURACY = 60;
@@ -1125,10 +1126,31 @@ try {
 
       state.lastCoord = { lat: lat, lon: lon, t: t };
 
+      // Filtre les increments de distance aberrants avant qu'ils n'entrent
+      // dans totalDistanceM (dont dependent la distance totale, la
+      // moyenne d'intervalle en mode Ecoute, l'historique et le fantome) :
+      // - trop haut : vitesse impliquee (distance/temps) au-dela du
+      //   maximum plausible pour un coureur -> glitch GPS (rebond,
+      //   multipath), on l'ignore ;
+      // - trop bas : quand le filtre de Kalman de la vitesse (qui gere
+      //   deja sa propre detection d'arret via speedAnchor/ANCHOR_STOP_MS)
+      //   indique qu'on est a l'arret, le jitter GPS residuel entre deux
+      //   positions n'est pas un vrai mouvement et n'est pas accumule.
+      //   (Un seuil fixe par echantillon a ete essaye puis abandonne : a
+      //   1 Hz, un jogging normal ne parcourt que 3-4 m par echantillon,
+      //   ce qui est deja sous un seuil de bruit "precision GPS" typique
+      //   et sous-comptait la distance reelle.)
       if (state.path.length > 0) {
         var prevPt = state.path[state.path.length - 1];
         var ddTotal = haversine(prevPt.lat, prevPt.lon, lat, lon);
-        if (ddTotal < 100) { state.totalDistanceM = state.totalDistanceM + ddTotal; }
+        var dtTotalSec = (t - prevPt.t) / 1000;
+        var isStationary = (state.emaSpeed !== null && state.emaSpeed < STATIONARY_EMA_THRESHOLD);
+        if (dtTotalSec > 0 && !isStationary) {
+          var impliedSpeed = ddTotal / dtTotalSec;
+          if (impliedSpeed <= MAX_RUN_SPEED) {
+            state.totalDistanceM = state.totalDistanceM + ddTotal;
+          }
+        }
       }
 
       state.path.push({ lat: lat, lon: lon, t: t });
