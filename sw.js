@@ -6,7 +6,11 @@ const APP_SHELL = [
   './manifest.json',
   './version.js',
   './icons/icon-192.svg',
-  './icons/icon-512.svg'
+  './icons/icon-512.svg',
+  './cockpit4-source.png',
+  './header-shoe.png',
+  './header-whistle.png',
+  './sifflet-01-source.mp3'
 ];
 
 self.addEventListener('install', function (event) {
