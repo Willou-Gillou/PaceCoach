@@ -29,7 +29,11 @@
     background:var(--panel);border-bottom:1px solid #232838;}
   header h1{font-size:15px;margin:0;font-weight:600;letter-spacing:.3px;}
   header .ver{font-size:11px;color:var(--muted);}
-  .header-right{display:flex;align-items:center;gap:6px;}
+  .header-left, .header-right{display:flex;align-items:center;gap:6px;}
+  .header-icon-btn{background:transparent;border:none;padding:2px;cursor:pointer;-webkit-appearance:none;
+    appearance:none;display:inline-flex;align-items:center;justify-content:center;}
+  .header-icon-btn img{width:26px;height:26px;object-fit:contain;display:block;}
+  .header-icon-btn:active img{opacity:.6;}
   .reload-btn{background:transparent;border:none;color:var(--muted);font-size:15px;line-height:1;
     padding:4px 6px;cursor:pointer;border-radius:6px;-webkit-appearance:none;appearance:none;}
   .reload-btn:active{color:var(--accent);background:rgba(61,220,151,.12);}
@@ -43,7 +47,19 @@
     border-bottom:1px solid #5a4a1a;line-height:1.4;white-space:pre-wrap;word-break:break-word;display:none;}
   #err-banner.show{display:block;}
   #build-tag{font-size:10px;color:#4a5266;text-align:center;padding:3px 0;background:#0d0f14;}
-  main{flex:1;overflow-y:auto;padding:12px 14px 100px;-webkit-overflow-scrolling:touch;}
+
+  /* Navigation par pages (swipe horizontal + defilement vertical par page),
+     alignee sur le mecanisme #pager de RunningCoach-iOS. */
+  #pager{flex:1;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;
+    -webkit-overflow-scrolling:touch;}
+  .page{flex:0 0 100%;width:100%;scroll-snap-align:start;overflow-y:auto;
+    -webkit-overflow-scrolling:touch;padding:12px 14px 100px;box-sizing:border-box;}
+  .page-title{font-size:18px;font-weight:700;margin:2px 0 12px;color:var(--text);}
+  #page-dots{position:fixed;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));
+    display:flex;justify-content:center;gap:14px;z-index:40;}
+  #page-dots .dot{width:22px;height:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+  #page-dots .dot::before{content:"";width:6px;height:6px;border-radius:50%;background:#2a2f3d;transition:background .2s;}
+  #page-dots .dot.active::before{background:var(--accent);}
   .card{background:var(--panel);border-radius:14px;padding:14px;margin-bottom:12px;border:1px solid #232838;}
   .card h2{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:0 0 10px;}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
@@ -90,6 +106,31 @@
   .mode-switch button{flex:1;padding:10px 4px;border-radius:12px;border:1px solid #2a2f3d;background:#0d0f14;
     color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;}
   .mode-switch button.active{background:rgba(61,220,151,.15);color:var(--accent);border-color:var(--accent);}
+
+  /* Reglages : profil + langue */
+  .settings-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .settings-row + .settings-row{margin-top:10px;}
+  .field-label{font-size:13px;color:var(--text);}
+  .switch{position:relative;display:inline-block;width:46px;height:26px;flex:0 0 46px;}
+  .switch input{opacity:0;width:0;height:0;}
+  .switch-slider{position:absolute;cursor:pointer;inset:0;background:#2a2f3d;border-radius:26px;transition:background .2s;}
+  .switch-slider::before{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;
+    background:#fff;border-radius:50%;transition:transform .2s;}
+  .switch input:checked + .switch-slider{background:var(--accent);}
+  .switch input:checked + .switch-slider::before{transform:translateX(20px);}
+  .profile-list{margin-top:10px;}
+  .profile-item{display:flex;align-items:center;justify-content:space-between;gap:8px;
+    background:#0d0f14;border-radius:10px;padding:9px 12px;margin-bottom:6px;border:1px solid #2a2f3d;cursor:pointer;}
+  .profile-item.active{border-color:var(--accent);}
+  .profile-item .pi-name{font-size:13px;font-weight:600;color:var(--text);}
+  .profile-item .pi-meta{font-size:11px;color:var(--muted);margin-top:2px;}
+  .profile-item .pi-btn{background:var(--panel2);color:var(--muted);border:none;border-radius:8px;
+    padding:5px 9px;font-size:10px;cursor:pointer;white-space:nowrap;flex:0 0 auto;}
+  .profile-item .pi-btn.pi-delete{color:var(--danger);}
+  .lang-toggle{display:flex;gap:6px;margin-top:6px;}
+  .lang-toggle button{flex:1;padding:9px 4px;border-radius:10px;border:1px solid #2a2f3d;background:#0d0f14;
+    color:var(--muted);font-size:13px;font-weight:700;cursor:pointer;}
+  .lang-toggle button.active{background:rgba(61,220,151,.15);color:var(--accent);border-color:var(--accent);}
 
   #leafletmap{width:100%;height:300px;border-radius:12px;border:1px solid #2a2f3d;background:#0d0f14;}
   .leaflet-container{background:#0d0f14;}
@@ -155,17 +196,23 @@ try{
 
 <div id="app">
   <header>
+    <button type="button" class="header-icon-btn" data-action="goto-dashboard" title="Tableau de bord">
+      <img src="./header-shoe.png" alt="">
+    </button>
     <h1>PaceCoach</h1>
     <div class="header-right">
       <button type="button" id="btn-reload" class="reload-btn" data-action="force-reload" title="Recharger l'application (forcer la mise a jour)">&#8635;</button>
       <span class="ver" id="header-ver"></span>
+      <button type="button" class="header-icon-btn" data-action="goto-workouts" title="Entrainements">
+        <img src="./header-whistle.png" alt="">
+      </button>
     </div>
   </header>
   <div id="build-tag"></div>
   <div id="err-banner"></div>
 
-  <main>
-    <section id="panel-run" class="panel">
+  <main id="pager">
+    <section id="page-1" class="page">
       <div class="card big-display">
         <div class="pace-row">
           <div class="pace" id="live-pace">--:--.-</div>
@@ -181,14 +228,14 @@ try{
 
       <div class="card">
         <div class="metrics">
-          <div><div class="v" id="m-dist">0.00</div><div class="l">km</div></div>
-          <div><div class="v" id="m-time">00:00</div><div class="l">duree</div></div>
-          <div><div class="v" id="m-avg">--:--</div><div class="l">allure moy.</div></div>
+          <div><div class="v" id="m-dist">0.00</div><div class="l" id="lbl-m-dist">km</div></div>
+          <div><div class="v" id="m-time">00:00</div><div class="l" id="lbl-m-time">duree</div></div>
+          <div><div class="v" id="m-avg">--:--</div><div class="l" id="lbl-m-avg">allure moy.</div></div>
         </div>
       </div>
 
       <div class="card">
-        <h2>Type de coaching</h2>
+        <h2 id="lbl-coaching-type">Type de coaching</h2>
         <div class="mode-switch">
           <button type="button" id="mode-hold" class="active" data-action="mode-hold">Tenue de vitesse</button>
           <button type="button" id="mode-listen" data-action="mode-listen">Ecoute de vitesse</button>
@@ -234,27 +281,69 @@ try{
         <select id="ghost-select" autocomplete="off"></select>
         <p class="help">Votre position et celle du fantome (course passee selectionnee) s'affichent superposees sur la carte. L'ecart de temps ("en avance de..." / "en retard de...") est annonce vocalement toutes les 30 secondes.</p>
       </div>
+    </section>
 
+    <section id="page-2" class="page">
+      <div class="page-title" id="lbl-nav-workouts">Entrainements</div>
       <div class="card">
-        <h2>Trajet</h2>
+        <p class="help" id="workouts-soon-msg">Les entrainements guides arrivent bientot dans PaceCoach.</p>
+      </div>
+    </section>
+
+    <section id="page-3" class="page">
+      <div class="page-title" id="lbl-nav-trajet">Trajet</div>
+      <div class="card">
         <div id="history-view-panel">
           <div class="hv-row">
             <div>
               <div id="history-view-title"></div>
               <div id="history-view-meta"></div>
             </div>
-            <button type="button" data-action="close-history-view">Fermer</button>
+            <button type="button" data-action="close-history-view" id="lbl-close">Fermer</button>
           </div>
         </div>
         <div id="leafletmap"></div>
       </div>
 
       <div class="card">
-        <h2>Historique des courses</h2>
+        <h2 id="lbl-history">Historique des courses</h2>
         <div id="history-list"></div>
       </div>
     </section>
+
+    <section id="page-4" class="page">
+      <div class="page-title" id="lbl-nav-settings">Reglages</div>
+
+      <div class="card">
+        <h2 id="lbl-profile">Profil</h2>
+        <div class="profile-list" id="profile-list"></div>
+        <div class="row" style="margin-top:10px">
+          <div style="flex:1"><label id="lbl-profile-name">Nom</label><input type="text" id="pf-name" autocomplete="off" placeholder="Alex"></div>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <div style="flex:1"><label id="lbl-profile-birthdate">Date de naissance</label><input type="date" id="pf-birthdate" autocomplete="off"></div>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <button type="button" class="btn btn-start" style="flex:0 0 auto;padding:10px 18px" data-action="profile-save" id="lbl-profile-save">Enregistrer</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 id="lbl-language">Langue</h2>
+        <div class="lang-toggle">
+          <button type="button" id="lang-fr" data-action="lang-fr">Francais</button>
+          <button type="button" id="lang-en" data-action="lang-en">English</button>
+        </div>
+      </div>
+    </section>
   </main>
+
+  <div id="page-dots">
+    <span class="dot" data-action="goto-dashboard"></span>
+    <span class="dot" data-action="goto-workouts"></span>
+    <span class="dot" data-action="goto-trajet"></span>
+    <span class="dot" data-action="goto-settings"></span>
+  </div>
 
   <footer>
     <button type="button" class="btn btn-screen" id="btn-black" data-action="blackout" title="Ecran noir">OFF</button>
@@ -336,6 +425,10 @@ try {
   state.ambientErrorNotified = false;
   state.currentViewedHistoryId = null;
   state.lastMapUpdateTime = 0;
+  state.lang = "fr";
+  state.profiles = [];
+  state.activeProfileId = null;
+  state.whistleAudio = null;
 
   var MAX_RUN_SPEED = 8.5;
   var STATIONARY_EMA_THRESHOLD = 0.3;
@@ -364,6 +457,12 @@ try {
   var BLACKOUT_TAPS_NEEDED = 3;
   var MAP_UPDATE_MIN_MS_IDLE = 3000;
   var MAP_UPDATE_MIN_MS_RUNNING = 1000;
+  var LANG_KEY = "pacecoach_lang";
+  var UNITS_KEY = "pacecoach_units";
+  var ANNOUNCE_FREQS_KEY = "pacecoach_announce_freqs";
+  var PROFILES_KEY = "pacecoach_profiles";
+  var ACTIVE_PROFILE_KEY = "pacecoach_active_profile";
+  var PAGE_IDS = ["page-1", "page-2", "page-3", "page-4"];
 
   function byId(id) {
     return document.getElementById(id);
@@ -630,6 +729,7 @@ try {
       showToast("Vitesse cible mise a jour: " + kmh.toFixed(1) + " km/h");
     }
     readTargetFromInputs();
+    saveAnnounceFreqsSetting();
     state.stateCandidate = null;
     state.stateCandidateCount = 0;
   }
@@ -1502,16 +1602,360 @@ try {
     }
   }
 
+  // ---------------------------------------------------------------------
+  // Navigation par pages (#pager), alignee sur le mecanisme de
+  // RunningCoach-iOS (goToPage/updatePageDots).
+  // ---------------------------------------------------------------------
+  function goToPage(pageId) {
+    var pager = byId("pager");
+    var target = byId(pageId);
+    if (!pager || !target) { return; }
+    pager.scrollTo({ left: target.offsetLeft, behavior: "smooth" });
+  }
+
+  var pageDotsRafPending = false;
+  function updatePageDots() {
+    var pager = byId("pager");
+    var dots = document.querySelectorAll("#page-dots .dot");
+    if (!pager || !dots.length) { return; }
+    var idx = Math.round(pager.scrollLeft / pager.clientWidth);
+    if (idx < 0) { idx = 0; }
+    if (idx > dots.length - 1) { idx = dots.length - 1; }
+    var k = 0;
+    while (k < dots.length) {
+      dots[k].className = (k === idx) ? "dot active" : "dot";
+      k = k + 1;
+    }
+  }
+
+  function wirePagerNav() {
+    var pager = byId("pager");
+    if (!pager) { return; }
+    pager.addEventListener("scroll", function () {
+      if (pageDotsRafPending) { return; }
+      pageDotsRafPending = true;
+      requestAnimationFrame(function () {
+        pageDotsRafPending = false;
+        updatePageDots();
+      });
+    }, false);
+    updatePageDots();
+  }
+
+  // ---------------------------------------------------------------------
+  // Sifflet (en-tete -> Entrainements), meme approche que RunningCoach-iOS :
+  // une instance Audio reutilisee, currentTime remis a 0 avant chaque lecture
+  // pour permettre un declenchement rapproche sans attendre la fin du son.
+  // ---------------------------------------------------------------------
+  function playWhistleSound() {
+    try {
+      if (!state.whistleAudio) { state.whistleAudio = new Audio("./sifflet-01-source.mp3"); }
+      state.whistleAudio.currentTime = 0;
+      state.whistleAudio.play().catch(function () {});
+    } catch (e) {}
+  }
+
+  // ---------------------------------------------------------------------
+  // i18n FR/EN. Couvre pour l'instant la navigation et la page Reglages ;
+  // le contenu du dashboard (page-1) sera traduit lors de sa refonte
+  // cockpit (phase suivante), pour eviter de traduire du texte qui va
+  // etre remplace dans la foulee.
+  // ---------------------------------------------------------------------
+  var STRINGS = {
+    nav_workouts: { fr: "Entrainements", en: "Workouts" },
+    nav_trajet: { fr: "Trajet", en: "Route" },
+    nav_settings: { fr: "Reglages", en: "Settings" },
+    workouts_soon: { fr: "Les entrainements guides arrivent bientot dans PaceCoach.", en: "Guided workouts are coming soon to PaceCoach." },
+    close: { fr: "Fermer", en: "Close" },
+    history: { fr: "Historique des courses", en: "Run history" },
+    profile: { fr: "Profil", en: "Profile" },
+    profile_name: { fr: "Nom", en: "Name" },
+    profile_birthdate: { fr: "Date de naissance", en: "Birthdate" },
+    profile_save: { fr: "Enregistrer", en: "Save" },
+    language: { fr: "Langue", en: "Language" },
+    m_dist: { fr: "km", en: "km" },
+    m_time: { fr: "duree", en: "duration" },
+    m_avg: { fr: "allure moy.", en: "avg. pace" },
+    coaching_type: { fr: "Type de coaching", en: "Coaching type" }
+  };
+
+  var I18N_DOM_MAP = {
+    "lbl-nav-workouts": "nav_workouts",
+    "lbl-nav-trajet": "nav_trajet",
+    "lbl-nav-settings": "nav_settings",
+    "workouts-soon-msg": "workouts_soon",
+    "lbl-close": "close",
+    "lbl-history": "history",
+    "lbl-profile": "profile",
+    "lbl-profile-name": "profile_name",
+    "lbl-profile-birthdate": "profile_birthdate",
+    "lbl-profile-save": "profile_save",
+    "lbl-language": "language",
+    "lbl-m-dist": "m_dist",
+    "lbl-m-time": "m_time",
+    "lbl-m-avg": "m_avg",
+    "lbl-coaching-type": "coaching_type"
+  };
+
+  function t(key) {
+    var entry = STRINGS[key];
+    if (!entry) { return key; }
+    return entry[state.lang] || entry.fr;
+  }
+
+  function detectDefaultLanguage() {
+    var nav = (navigator.language || "fr").toLowerCase();
+    return (nav.indexOf("fr") === 0) ? "fr" : "en";
+  }
+
+  function applyLanguage() {
+    var domIds = Object.keys(I18N_DOM_MAP);
+    var k = 0;
+    while (k < domIds.length) {
+      var id = domIds[k];
+      var el = byId(id);
+      if (el) { el.textContent = t(I18N_DOM_MAP[id]); }
+      k = k + 1;
+    }
+    var langFrBtn = byId("lang-fr");
+    var langEnBtn = byId("lang-en");
+    if (langFrBtn) { langFrBtn.className = (state.lang === "fr") ? "active" : ""; }
+    if (langEnBtn) { langEnBtn.className = (state.lang === "en") ? "active" : ""; }
+  }
+
+  function setLanguage(lang) {
+    state.lang = (lang === "en") ? "en" : "fr";
+    try { window.localStorage.setItem(LANG_KEY, state.lang); } catch (e) {}
+    applyLanguage();
+  }
+
+  // ---------------------------------------------------------------------
+  // Profils utilisateur (non bloquant : un profil "Coureur" par defaut est
+  // cree silencieusement si aucun n'existe, pour ne pas gener l'usage
+  // immediat de l'app). Gerable en detail depuis Reglages.
+  // ---------------------------------------------------------------------
+  function loadProfiles() {
+    try {
+      var raw = window.localStorage.getItem(PROFILES_KEY);
+      state.profiles = raw ? JSON.parse(raw) : [];
+    } catch (e) { state.profiles = []; }
+    try {
+      state.activeProfileId = window.localStorage.getItem(ACTIVE_PROFILE_KEY) || null;
+    } catch (e) { state.activeProfileId = null; }
+  }
+
+  function saveProfiles() {
+    try { window.localStorage.setItem(PROFILES_KEY, JSON.stringify(state.profiles)); } catch (e) {}
+    try {
+      if (state.activeProfileId) { window.localStorage.setItem(ACTIVE_PROFILE_KEY, state.activeProfileId); }
+    } catch (e) {}
+  }
+
+  function findProfile(id) {
+    var k = 0;
+    while (k < state.profiles.length) {
+      if (state.profiles[k].id === id) { return state.profiles[k]; }
+      k = k + 1;
+    }
+    return null;
+  }
+
+  function ageFromBirthdate(birthdateStr) {
+    if (!birthdateStr) { return null; }
+    var b = new Date(birthdateStr);
+    if (isNaN(b.getTime())) { return null; }
+    var now = new Date();
+    var age = now.getFullYear() - b.getFullYear();
+    var monthDiff = now.getMonth() - b.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < b.getDate())) { age = age - 1; }
+    return age;
+  }
+
+  function ensureDefaultProfile() {
+    if (state.profiles.length === 0) {
+      var def = { id: "p" + Date.now(), name: "Coureur", birthdate: "" };
+      state.profiles.push(def);
+      state.activeProfileId = def.id;
+      saveProfiles();
+    } else if (!state.activeProfileId || !findProfile(state.activeProfileId)) {
+      state.activeProfileId = state.profiles[0].id;
+      saveProfiles();
+    }
+  }
+
+  function renderProfileList() {
+    var container = byId("profile-list");
+    if (!container) { return; }
+    var html = "";
+    var k = 0;
+    while (k < state.profiles.length) {
+      var p = state.profiles[k];
+      var isActive = (p.id === state.activeProfileId);
+      var age = ageFromBirthdate(p.birthdate);
+      var meta = age !== null ? (age + " ans") : "";
+      html += '<div class="profile-item' + (isActive ? " active" : "") + '" data-action="profile-select" data-id="' + p.id + '">'
+        + '<div><div class="pi-name">' + p.name + '</div><div class="pi-meta">' + meta + '</div></div>'
+        + '<button type="button" class="pi-btn pi-delete" data-action="profile-delete" data-id="' + p.id + '">&#10005;</button>'
+        + '</div>';
+      k = k + 1;
+    }
+    container.innerHTML = html;
+    var active = findProfile(state.activeProfileId);
+    var nameInput = byId("pf-name");
+    var birthdateInput = byId("pf-birthdate");
+    if (active && nameInput && birthdateInput) {
+      nameInput.value = active.name || "";
+      birthdateInput.value = active.birthdate || "";
+    }
+  }
+
+  function saveActiveProfileFromForm() {
+    var nameInput = byId("pf-name");
+    var birthdateInput = byId("pf-birthdate");
+    var name = nameInput ? nameInput.value.trim() : "";
+    if (!name) { return; }
+    var birthdate = birthdateInput ? birthdateInput.value : "";
+    var active = findProfile(state.activeProfileId);
+    if (active) {
+      active.name = name;
+      active.birthdate = birthdate;
+    } else {
+      var np = { id: "p" + Date.now(), name: name, birthdate: birthdate };
+      state.profiles.push(np);
+      state.activeProfileId = np.id;
+    }
+    saveProfiles();
+    renderProfileList();
+    showToast("Profil enregistre", 1200);
+  }
+
+  function selectProfile(id) {
+    if (!findProfile(id)) { return; }
+    state.activeProfileId = id;
+    saveProfiles();
+    renderProfileList();
+  }
+
+  function deleteProfile(id) {
+    var idx = -1;
+    var k = 0;
+    while (k < state.profiles.length) {
+      if (state.profiles[k].id === id) { idx = k; }
+      k = k + 1;
+    }
+    if (idx === -1) { return; }
+    state.profiles.splice(idx, 1);
+    if (state.activeProfileId === id) { state.activeProfileId = null; }
+    ensureDefaultProfile();
+    saveProfiles();
+    renderProfileList();
+  }
+
+  // ---------------------------------------------------------------------
+  // Persistance des reglages (unites, cible, frequence, mode) - jusqu'ici
+  // ces choix etaient reinitialises a chaque chargement de page.
+  // ---------------------------------------------------------------------
+  function loadSettings() {
+    try {
+      var lang = window.localStorage.getItem(LANG_KEY);
+      state.lang = lang || detectDefaultLanguage();
+    } catch (e) { state.lang = detectDefaultLanguage(); }
+
+    try {
+      var rawUnits = window.localStorage.getItem(UNITS_KEY);
+      if (rawUnits) {
+        var units = JSON.parse(rawUnits);
+        if (units.mode) { state.mode = units.mode; }
+        if (units.unitHold) { state.unitHold = units.unitHold; }
+        if (units.unitListen) { state.unitListen = units.unitListen; }
+      }
+    } catch (e) {}
+
+    try {
+      var rawFreqs = window.localStorage.getItem(ANNOUNCE_FREQS_KEY);
+      if (rawFreqs) {
+        var freqs = JSON.parse(rawFreqs);
+        if (freqs.listenFreq) { state.listenFreq = freqs.listenFreq; }
+        if (freqs.holdMin) { byId("hold-min").value = freqs.holdMin; }
+        if (freqs.holdSec !== undefined && freqs.holdSec !== null) { byId("hold-sec").value = freqs.holdSec; }
+        if (freqs.holdKmh) { byId("hold-kmh-val").value = freqs.holdKmh; }
+      }
+    } catch (e) {}
+    readTargetFromInputs();
+  }
+
+  function saveUnitsSetting() {
+    try {
+      window.localStorage.setItem(UNITS_KEY, JSON.stringify({
+        mode: state.mode, unitHold: state.unitHold, unitListen: state.unitListen
+      }));
+    } catch (e) {}
+  }
+
+  function saveAnnounceFreqsSetting() {
+    try {
+      window.localStorage.setItem(ANNOUNCE_FREQS_KEY, JSON.stringify({
+        listenFreq: state.listenFreq,
+        holdMin: byId("hold-min") ? byId("hold-min").value : null,
+        holdSec: byId("hold-sec") ? byId("hold-sec").value : null,
+        holdKmh: byId("hold-kmh-val") ? byId("hold-kmh-val").value : null
+      }));
+    } catch (e) {}
+  }
+
+  function applyLoadedSettingsToUI() {
+    // Mode
+    if (state.mode === "listen") { selectMode("listen"); }
+    else if (state.mode === "ghost") { selectMode("ghost"); }
+    else { selectMode("hold"); }
+
+    // Unites - Tenue de vitesse
+    if (state.unitHold === "kmh") {
+      byId("unit-kmh").className = "active";
+      byId("unit-pace").className = "";
+      byId("hold-pace-row").style.display = "none";
+      byId("hold-kmh-row").style.display = "flex";
+    }
+    // Unites - Ecoute de vitesse
+    if (state.unitListen === "kmh") {
+      byId("unit-kmh-l").className = "active";
+      byId("unit-pace-l").className = "";
+    }
+    // Frequence d'annonce
+    var freqBtns = document.querySelectorAll(".freq");
+    var k = 0;
+    while (k < freqBtns.length) {
+      var fb = freqBtns[k];
+      fb.className = (parseInt(fb.getAttribute("data-f"), 10) === state.listenFreq) ? "freq active" : "freq";
+      k = k + 1;
+    }
+  }
+
   function handleAction(action, el) {
     if (action === "start") { doStart(); return; }
     if (action === "stop") { doStop(); return; }
     if (action === "force-reload") { forceReloadApp(); return; }
     if (action === "blackout") { doBlackoutOpen(); return; }
     if (action === "blackout-tap") { handleBlackoutTap(); return; }
-    if (action === "mode-hold") { selectMode("hold"); return; }
-    if (action === "mode-listen") { selectMode("listen"); return; }
-    if (action === "mode-ghost") { selectMode("ghost"); return; }
+    if (action === "mode-hold") { selectMode("hold"); saveUnitsSetting(); return; }
+    if (action === "mode-listen") { selectMode("listen"); saveUnitsSetting(); return; }
+    if (action === "mode-ghost") { selectMode("ghost"); saveUnitsSetting(); return; }
     if (action === "set-target") { doSetTargetToCurrent(); return; }
+    if (action === "goto-dashboard") { goToPage("page-1"); return; }
+    if (action === "goto-workouts") { playWhistleSound(); goToPage("page-2"); return; }
+    if (action === "goto-trajet") { goToPage("page-3"); return; }
+    if (action === "goto-settings") { goToPage("page-4"); return; }
+    if (action === "lang-fr") { setLanguage("fr"); return; }
+    if (action === "lang-en") { setLanguage("en"); return; }
+    if (action === "profile-save") { saveActiveProfileFromForm(); return; }
+    if (action === "profile-select") {
+      selectProfile(el.getAttribute("data-id"));
+      return;
+    }
+    if (action === "profile-delete") {
+      deleteProfile(el.getAttribute("data-id"));
+      return;
+    }
     if (action === "view-history") {
       var id = el.getAttribute("data-id");
       viewHistoryRun(id);
@@ -1534,6 +1978,7 @@ try {
       byId("unit-kmh").className = "";
       byId("hold-pace-row").style.display = "flex";
       byId("hold-kmh-row").style.display = "none";
+      saveUnitsSetting();
       return;
     }
     if (action === "unit-hold-kmh") {
@@ -1542,18 +1987,21 @@ try {
       byId("unit-pace").className = "";
       byId("hold-pace-row").style.display = "none";
       byId("hold-kmh-row").style.display = "flex";
+      saveUnitsSetting();
       return;
     }
     if (action === "unit-listen-pace") {
       state.unitListen = "pace";
       byId("unit-pace-l").className = "active";
       byId("unit-kmh-l").className = "";
+      saveUnitsSetting();
       return;
     }
     if (action === "unit-listen-kmh") {
       state.unitListen = "kmh";
       byId("unit-kmh-l").className = "active";
       byId("unit-pace-l").className = "";
+      saveUnitsSetting();
       return;
     }
     if (action === "freq") {
@@ -1565,6 +2013,7 @@ try {
       }
       el.className = "freq active";
       state.listenFreq = parseInt(el.getAttribute("data-f"), 10);
+      saveAnnounceFreqsSetting();
       return;
     }
   }
@@ -1587,6 +2036,32 @@ try {
       loadGhostByIdValue(ghostSelectEl.value);
     }, false);
   }
+
+  var holdTargetInputIds = ["hold-min", "hold-sec", "hold-kmh-val"];
+  var hti = 0;
+  while (hti < holdTargetInputIds.length) {
+    var htiEl = byId(holdTargetInputIds[hti]);
+    if (htiEl) {
+      htiEl.addEventListener("input", function () {
+        readTargetFromInputs();
+        saveAnnounceFreqsSetting();
+      }, false);
+    }
+    hti = hti + 1;
+  }
+
+  var pfNameEl = byId("pf-name");
+  var pfBirthdateEl = byId("pf-birthdate");
+  if (pfNameEl) { pfNameEl.addEventListener("change", saveActiveProfileFromForm, false); }
+  if (pfBirthdateEl) { pfBirthdateEl.addEventListener("change", saveActiveProfileFromForm, false); }
+
+  loadSettings();
+  loadProfiles();
+  ensureDefaultProfile();
+  applyLoadedSettingsToUI();
+  applyLanguage();
+  renderProfileList();
+  wirePagerNav();
 
   initLeafletMap();
   renderHistoryList();
