@@ -53,10 +53,9 @@
   #pager{flex:1;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;
     -webkit-overflow-scrolling:touch;}
   .page{flex:0 0 100%;width:100%;scroll-snap-align:start;overflow-y:auto;
-    -webkit-overflow-scrolling:touch;padding:12px 14px 100px;box-sizing:border-box;}
+    -webkit-overflow-scrolling:touch;padding:12px 14px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;}
   .page-title{font-size:18px;font-weight:700;margin:2px 0 12px;color:var(--text);}
-  #page-dots{position:fixed;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));
-    display:flex;justify-content:center;gap:14px;z-index:40;}
+  #page-dots{position:relative;display:flex;justify-content:center;gap:14px;padding:2px 0 8px;}
   #page-dots .dot{width:22px;height:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;}
   #page-dots .dot::before{content:"";width:6px;height:6px;border-radius:50%;background:#2a2f3d;transition:background .2s;}
   #page-dots .dot.active::before{background:var(--accent);}
@@ -101,6 +100,77 @@
   .gps-icon.red{background:#ff4d4f;box-shadow:0 0 6px rgba(255,77,79,0.7);}
   .gps-flag{font-size:11px;color:var(--muted);text-align:center;}
   .gps-flag.weak{color:var(--accent2);}
+
+  /* Dashboard cockpit (page 1), aligne sur RunningCoach-iOS : meme image
+     de fond (cockpit4-source.png, 1005x1523) et memes coordonnees en %
+     pour les 7 zones (Vitesse/FC/Direction/Altitude/Distance/Duree/
+     Allure moy.), la FC restant affichee en placeholder statique "--"
+     (pas de capteur BLE possible sur PWA iOS - voir CLAUDE.md/plan). */
+  .cockpit{position:relative;width:100%;max-height:100%;margin:0 auto;
+    aspect-ratio:1005/1523;border-radius:20px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.5);}
+  .cockpit img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;}
+  .cockpit-switch-group{display:flex;flex-direction:row;align-items:center;justify-content:center;
+    gap:16px;margin:14px 0;}
+  .go-button{width:68px;height:68px;border-radius:50%;box-sizing:border-box;
+    border:3px solid #2fbf76;background:radial-gradient(circle at 35% 30%,#57eca0,#12a35c);
+    color:#04170d;font-size:16px;font-weight:800;letter-spacing:.5px;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;
+    box-shadow:0 4px 10px rgba(0,0,0,.5),inset 0 2px 3px rgba(255,255,255,.4);
+    transition:background .25s,border-color .25s,transform .15s;-webkit-appearance:none;appearance:none;}
+  .go-button:active{transform:scale(.94);}
+  .go-button.running{border-color:#ff4d4f;
+    background:radial-gradient(circle at 35% 30%,#ff9092,#e0393b);color:#2a0505;}
+  .pause-toggle, .settings-toggle{width:52px;height:52px;border-radius:50%;box-sizing:border-box;
+    border:2px solid rgba(255,255,255,.35);background:rgba(255,255,255,.08);color:#eef1f6;
+    font-size:16px;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;
+    -webkit-appearance:none;appearance:none;}
+  .settings-toggle svg{width:26px;height:26px;}
+  .cockpit-zone{position:absolute;text-align:center;}
+  .zone-speed{top:12.5%;left:7%;width:86%;}
+  .zone-fc,.zone-direction{top:49.6%;height:5.4%;width:38%;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .zone-fc{left:9%;}
+  .zone-direction{left:55%;}
+  .zone-alt,.zone-dist{top:68.1%;height:8.7%;width:38%;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .zone-alt{left:9%;}
+  .zone-dist{left:55%;}
+  .zone-duree,.zone-avg{top:86.7%;height:5.2%;width:38%;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .zone-duree{left:9%;}
+  .zone-avg{left:55%;}
+  .cockpit-zone .v{font-size:15px;font-weight:700;}
+  .cockpit-zone .l{font-size:9px;color:var(--muted);text-transform:uppercase;}
+  .zone-title{position:absolute;font-size:8.5px;font-weight:800;text-transform:uppercase;
+    letter-spacing:.3px;line-height:1.15;text-align:left;pointer-events:none;}
+  .zone-title-fc{top:46.4%;left:14%;width:33%;transform:translateY(-50%);color:var(--m-fc);}
+  .zone-title-direction{top:46.4%;left:61.3%;width:33%;transform:translateY(-50%);color:#FF9503;}
+  .zone-title-alt{top:65.4%;left:14%;width:33%;transform:translateY(-50%);color:#0586FB;}
+  .zone-title-dist{top:65.4%;left:61.3%;width:33%;transform:translateY(-50%);color:var(--m-dist);}
+  .zone-title-duree{top:82.5%;left:14%;width:33%;transform:translateY(-50%);color:var(--m-duree);}
+  .zone-title-avg{top:82.5%;left:61.3%;width:33%;transform:translateY(-50%);color:var(--m-allure);}
+  .cockpit-zone .pace-row{display:flex;align-items:center;justify-content:center;gap:10px;}
+  .cockpit-zone .pace{font-size:42px;font-weight:800;letter-spacing:1px;line-height:1;}
+  .cockpit-zone .sub{font-size:12px;color:var(--muted);margin-top:4px;}
+  .cockpit-zone .status-banner{margin-top:8px;padding:8px;font-size:13px;}
+
+  /* Effet de bascule dashboard <-> carte (page 1), meme mecanisme que
+     RunningCoach-iOS : re-parentage de l'instance Leaflet unique dans
+     #dashboard-map-slot, rotation CSS des deux faces. */
+  #db-front-wrap{width:100%;}
+  #db-back-face{width:100%;display:none;flex-direction:column;}
+  .db-spin-pos{animation:dbSpinPos .26s ease forwards;}
+  .db-spin-neg{animation:dbSpinNeg .26s ease forwards;}
+  @keyframes dbSpinPos{from{transform:rotateY(0deg);opacity:1;}to{transform:rotateY(90deg);opacity:0;}}
+  @keyframes dbSpinNeg{from{transform:rotateY(-90deg);opacity:0;}to{transform:rotateY(0deg);opacity:1;}}
+  #dashboard-map-slot{position:relative;}
+  #dashboard-map-slot #leafletmap{height:60vh;max-height:520px;}
+  .db-map-metrics{position:absolute;inset:0;z-index:1000;pointer-events:none;}
+  .db-map-metrics .dbm-badge{position:absolute;background:rgba(13,15,20,.85);border:1px solid #2a2f3d;
+    border-radius:10px;padding:4px 8px;font-size:11px;font-weight:700;color:var(--text);}
+  .db-map-metrics .dbm-dist{top:8px;left:8px;}
+  .db-map-metrics .dbm-avg{top:8px;right:8px;}
+  .db-map-metrics .dbm-time{bottom:8px;left:8px;}
 
   .mode-switch{display:flex;gap:6px;}
   .mode-switch button{flex:1;padding:10px 4px;border-radius:12px;border:1px solid #2a2f3d;background:#0d0f14;
@@ -154,13 +224,9 @@
   .hi-delete-btn{color:var(--danger);}
   .hi-meta{font-size:11px;color:var(--muted);margin-top:3px;}
 
-  footer{position:fixed;bottom:0;left:0;right:0;padding:10px 14px calc(10px + env(safe-area-inset-bottom));
-    background:linear-gradient(180deg,transparent,var(--bg) 30%);display:flex;gap:10px;z-index:50;}
   .btn{flex:1;padding:14px 6px;border-radius:12px;border:none;font-size:15px;font-weight:700;cursor:pointer;
     -webkit-appearance:none;appearance:none;touch-action:manipulation;}
   .btn-start{background:var(--accent);color:#062017;}
-  .btn-stop{background:var(--danger);color:#fff;}
-  .btn-screen{background:var(--panel2);color:var(--text);flex:0 0 54px;font-size:16px;}
   #blackout{position:fixed;inset:0;background:#000;z-index:999;display:none;flex-direction:column;
     align-items:center;justify-content:center;color:#333;font-size:13px;text-align:center;}
   #blackout.show{display:flex;}
@@ -201,6 +267,7 @@ try{
     </button>
     <h1>PaceCoach</h1>
     <div class="header-right">
+      <button type="button" id="btn-black" class="reload-btn" data-action="blackout" title="Ecran noir">&#9679;</button>
       <button type="button" id="btn-reload" class="reload-btn" data-action="force-reload" title="Recharger l'application (forcer la mise a jour)">&#8635;</button>
       <span class="ver" id="header-ver"></span>
       <button type="button" class="header-icon-btn" data-action="goto-workouts" title="Entrainements">
@@ -213,25 +280,79 @@ try{
 
   <main id="pager">
     <section id="page-1" class="page">
-      <div class="card big-display">
-        <div class="pace-row">
-          <div class="pace" id="live-pace">--:--.-</div>
-          <button type="button" id="btn-set" data-action="set-target" title="Definir l'allure cible sur l'allure actuelle">SET</button>
-        </div>
-        <div class="sub" id="live-sub">min/km - en attente de GPS</div>
-        <div class="status-banner" id="status-banner">Pret</div>
-        <div class="gps-flag-row">
-          <span class="gps-icon" id="gps-icon"></span>
-          <span class="gps-flag" id="gps-flag"></span>
+      <div id="db-front-wrap">
+        <div class="cockpit">
+          <img src="./cockpit4-source.png" alt="">
+
+          <div class="cockpit-zone zone-speed">
+            <div class="pace-row">
+              <div class="pace" id="live-pace">--:--.-</div>
+              <button type="button" id="btn-set" data-action="set-target" title="Definir l'allure cible sur l'allure actuelle">SET</button>
+            </div>
+            <div class="sub" id="live-sub">min/km - en attente de GPS</div>
+            <div class="status-banner" id="status-banner">Pret</div>
+            <div class="gps-flag-row">
+              <span class="gps-icon" id="gps-icon"></span>
+              <span class="gps-flag" id="gps-flag"></span>
+            </div>
+          </div>
+
+          <div class="zone-title zone-title-fc" id="lbl-zone-fc">FC</div>
+          <div class="cockpit-zone zone-fc">
+            <div class="v" id="m-fc">--</div>
+          </div>
+
+          <div class="zone-title zone-title-direction" id="lbl-zone-direction">Direction</div>
+          <div class="cockpit-zone zone-direction">
+            <div class="v" id="m-dir">--</div>
+          </div>
+
+          <div class="zone-title zone-title-alt" id="lbl-zone-alt">Altitude</div>
+          <div class="cockpit-zone zone-alt">
+            <div class="v" id="m-alt">--</div>
+            <div class="l" id="m-alt-unit">m</div>
+          </div>
+
+          <div class="zone-title zone-title-dist" id="lbl-zone-dist">Distance</div>
+          <div class="cockpit-zone zone-dist">
+            <div class="v" id="m-dist">0.00</div>
+            <div class="l" id="lbl-m-dist">km</div>
+          </div>
+
+          <div class="zone-title zone-title-duree" id="lbl-zone-duree">Duree</div>
+          <div class="cockpit-zone zone-duree">
+            <div class="v" id="m-time">00:00</div>
+          </div>
+
+          <div class="zone-title zone-title-avg" id="lbl-zone-avg">Allure moy.</div>
+          <div class="cockpit-zone zone-avg">
+            <div class="v" id="m-avg">--:--</div>
+          </div>
         </div>
       </div>
 
-      <div class="card">
-        <div class="metrics">
-          <div><div class="v" id="m-dist">0.00</div><div class="l" id="lbl-m-dist">km</div></div>
-          <div><div class="v" id="m-time">00:00</div><div class="l" id="lbl-m-time">duree</div></div>
-          <div><div class="v" id="m-avg">--:--</div><div class="l" id="lbl-m-avg">allure moy.</div></div>
+      <div id="db-back-face">
+        <div id="dashboard-map-slot">
+          <div class="db-map-metrics" id="db-map-metrics">
+            <span class="dbm-badge dbm-dist" id="dbm-dist">0.00 km</span>
+            <span class="dbm-badge dbm-avg" id="dbm-avg">--:--</span>
+            <span class="dbm-badge dbm-time" id="dbm-time">00:00</span>
+          </div>
         </div>
+      </div>
+
+      <div class="cockpit-switch-group">
+        <button type="button" class="pause-toggle" id="pause-toggle" style="visibility:hidden" title="Pause (bientot disponible)" tabindex="-1" aria-hidden="true">
+          <span>&#10074;&#10074;</span>
+        </button>
+        <button type="button" class="go-button" id="cockpit-power" data-action="toggle-run" title="Demarrer / Arreter">
+          <span id="go-button-label">GO</span>
+        </button>
+        <button type="button" class="settings-toggle" id="third-switch-btn" data-action="goto-settings" title="Reglages">
+          <svg id="third-btn-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+          </svg>
+        </button>
       </div>
 
       <div class="card">
@@ -344,12 +465,6 @@ try{
     <span class="dot" data-action="goto-trajet"></span>
     <span class="dot" data-action="goto-settings"></span>
   </div>
-
-  <footer>
-    <button type="button" class="btn btn-screen" id="btn-black" data-action="blackout" title="Ecran noir">OFF</button>
-    <button type="button" class="btn btn-start" id="btn-start" data-action="start">Demarrer</button>
-    <button type="button" class="btn btn-stop" id="btn-stop" data-action="stop" style="display:none">Arreter</button>
-  </footer>
 </div>
 
 <div id="blackout" data-action="blackout-tap">
@@ -429,6 +544,9 @@ try {
   state.profiles = [];
   state.activeProfileId = null;
   state.whistleAudio = null;
+  state.dashboardFlipped = false;
+  state.lastHeadingDeg = null;
+  state.lastAltitudeM = null;
 
   var MAX_RUN_SPEED = 8.5;
   var STATIONARY_EMA_THRESHOLD = 0.3;
@@ -999,6 +1117,143 @@ try {
   var lHistoryPolyline = null;
   var lHasCentered = false;
 
+  // Emplacement d'origine de la carte Leaflet unique (page 3, Trajet),
+  // pour pouvoir la reparenter temporairement dans le dashboard (bascule
+  // cockpit <-> carte) puis la restituer exactement a sa place.
+  var lMapHomeParent = null;
+  var lMapHomeNextSibling = null;
+  (function captureLeafletMapHome() {
+    var mapDiv = byId("leafletmap");
+    if (!mapDiv) { return; }
+    lMapHomeParent = mapDiv.parentNode;
+    lMapHomeNextSibling = mapDiv.nextSibling;
+  })();
+
+  function moveLeafletMapIntoSlot(slotId) {
+    var slot = byId(slotId);
+    var mapDiv = byId("leafletmap");
+    if (!slot || !mapDiv) { return; }
+    slot.appendChild(mapDiv);
+    mapDiv.style.touchAction = "pan-x";
+    mapDiv.style.pointerEvents = "none";
+    setTimeout(function () {
+      try {
+        if (lmap) { lmap.invalidateSize(); lmap.dragging.disable(); lmap.touchZoom.disable(); }
+      } catch (e) {}
+    }, 30);
+  }
+
+  function moveLeafletMapBackHome() {
+    var mapDiv = byId("leafletmap");
+    if (!mapDiv || !lMapHomeParent) { return; }
+    if (lMapHomeNextSibling && lMapHomeNextSibling.parentNode === lMapHomeParent) {
+      lMapHomeParent.insertBefore(mapDiv, lMapHomeNextSibling);
+    } else {
+      lMapHomeParent.appendChild(mapDiv);
+    }
+    mapDiv.style.touchAction = "";
+    mapDiv.style.pointerEvents = "";
+    try { if (lmap) { lmap.dragging.enable(); lmap.touchZoom.enable(); } } catch (e) {}
+    setTimeout(function () { try { if (lmap) { lmap.invalidateSize(); } } catch (e) {} }, 30);
+  }
+
+  function flipPaneToMap(frontId, backId, slotId) {
+    var front = byId(frontId);
+    var back = byId(backId);
+    if (!front || !back) { return; }
+    front.classList.add("db-spin-pos");
+    setTimeout(function () {
+      front.style.display = "none";
+      moveLeafletMapIntoSlot(slotId);
+      back.style.display = "flex";
+      back.classList.add("db-spin-neg");
+      void back.offsetWidth;
+      back.classList.remove("db-spin-neg");
+    }, 260);
+  }
+
+  function flipPaneToFront(frontId, backId, instant) {
+    var front = byId(frontId);
+    var back = byId(backId);
+    if (!front || !back) { return; }
+    if (instant) {
+      back.style.display = "none";
+      back.classList.remove("db-spin-pos", "db-spin-neg");
+      moveLeafletMapBackHome();
+      front.style.display = "flex";
+      front.classList.remove("db-spin-pos", "db-spin-neg");
+      return;
+    }
+    back.classList.add("db-spin-neg");
+    setTimeout(function () {
+      back.style.display = "none";
+      moveLeafletMapBackHome();
+      front.style.display = "flex";
+      front.classList.add("db-spin-pos");
+      void front.offsetWidth;
+      front.classList.remove("db-spin-pos");
+    }, 260);
+  }
+
+  function flipDashboardToMap() {
+    if (!state.running || state.dashboardFlipped) { return; }
+    state.dashboardFlipped = true;
+    updateThirdSwitchButton();
+    flipPaneToMap("db-front-wrap", "db-back-face", "dashboard-map-slot");
+  }
+
+  function flipDashboardToFront(instant) {
+    if (!state.dashboardFlipped) { return; }
+    state.dashboardFlipped = false;
+    updateThirdSwitchButton();
+    flipPaneToFront("db-front-wrap", "db-back-face", instant);
+  }
+
+  function updateThirdSwitchButton() {
+    var btn = byId("third-switch-btn");
+    var icon = byId("third-btn-icon");
+    if (!btn || !icon) { return; }
+    if (state.dashboardFlipped) {
+      btn.setAttribute("data-action", "dashboard-flip-back");
+      btn.title = "Retour";
+      icon.outerHTML = '<svg id="third-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>';
+    } else if (state.running) {
+      btn.setAttribute("data-action", "dashboard-flip-map");
+      btn.title = "Voir la carte";
+      icon.outerHTML = '<svg id="third-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3V7z"/><path d="M9 4v13M15 7v13"/></svg>';
+    } else {
+      btn.setAttribute("data-action", "goto-settings");
+      btn.title = "Reglages";
+      icon.outerHTML = '<svg id="third-btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>';
+    }
+  }
+
+  function updateDbMapMetrics() {
+    var dEl = byId("dbm-dist");
+    var aEl = byId("dbm-avg");
+    var tEl = byId("dbm-time");
+    if (dEl) { dEl.textContent = byId("m-dist") ? (byId("m-dist").textContent + " km") : "0.00 km"; }
+    if (aEl) { aEl.textContent = byId("m-avg") ? byId("m-avg").textContent : "--:--"; }
+    if (tEl) { tEl.textContent = byId("m-time") ? byId("m-time").textContent : "00:00"; }
+  }
+
+  function setSwitchUI(running) {
+    var sw = byId("cockpit-power");
+    var label = byId("go-button-label");
+    var pauseBtn = byId("pause-toggle");
+    if (sw) { sw.className = running ? "go-button running" : "go-button"; }
+    if (label) { label.textContent = running ? "STOP" : "GO"; }
+    if (pauseBtn) { pauseBtn.style.visibility = "hidden"; }
+    if (!running && state.dashboardFlipped) { flipDashboardToFront(true); }
+    updateThirdSwitchButton();
+    // Bloque le swipe vers Entrainements/Trajet pendant une course lancee
+    // depuis le dashboard (meme mecanisme que RunningCoach-iOS) :
+    // overflow-x:hidden empeche le geste tout en laissant goToPage()
+    // fonctionner en JS (navigation par bouton toujours possible).
+    var pagerLockEl = byId("pager");
+    if (pagerLockEl) { pagerLockEl.style.overflowX = running ? "hidden" : ""; }
+  }
+
   function initLeafletMap() {
     try {
       if (typeof L === "undefined") {
@@ -1119,6 +1374,32 @@ try {
     if (!icon) { return; }
     icon.className = "gps-icon " + tier;
   }
+
+  // Altitude/Direction : donnees reelles (GPS altitude, boussole
+  // deviceorientation), pas liees a une course active - meme logique
+  // que RunningCoach-iOS. Pas de capteur FC possible sur PWA web iOS
+  // (aucun navigateur iOS n'expose Web Bluetooth, limitation WebKit) :
+  // m-fc reste un placeholder statique "--", code pret pour un futur
+  // wrapper natif.
+  function updateAltitudeDisplay(altitude, altitudeAccuracy) {
+    var hasAlt = typeof altitude === "number" && isFinite(altitude);
+    var accuracyTooWeak = typeof altitudeAccuracy === "number" && altitudeAccuracy >= 0 && altitudeAccuracy > 50;
+    var validAlt = hasAlt && !accuracyTooWeak;
+    state.lastAltitudeM = validAlt ? altitude : null;
+    var el = byId("m-alt");
+    if (el) { el.textContent = validAlt ? Math.round(altitude) : "--"; }
+  }
+
+  function updateDirectionDisplay(heading) {
+    var hasHeading = typeof heading === "number" && isFinite(heading) && heading >= 0;
+    state.lastHeadingDeg = hasHeading ? (Math.round(heading) % 360) : null;
+    var el = byId("m-dir");
+    if (el) { el.textContent = hasHeading ? (state.lastHeadingDeg + "°") : "--"; }
+  }
+
+  window.onDeviceHeading = function (heading) {
+    updateDirectionDisplay(heading);
+  };
 
   function updateGpsFlag(text, cls) {
     var gf = byId("gps-flag");
@@ -1268,6 +1549,7 @@ try {
       var accuracy = pos.coords.accuracy;
       updateSignalFromAccuracy(accuracy);
       updateMapPosition(pos.coords.latitude, pos.coords.longitude);
+      updateAltitudeDisplay(pos.coords.altitude, pos.coords.altitudeAccuracy);
       if (state.running) {
         processPosition(pos);
       }
@@ -1311,6 +1593,13 @@ try {
         maximumAge: 0,
         timeout: 20000
       });
+      if (window.DeviceOrientationEvent) {
+        window.addEventListener("deviceorientation", function (e) {
+          if (typeof e.webkitCompassHeading === "number") {
+            window.onDeviceHeading(e.webkitCompassHeading);
+          }
+        }, false);
+      }
     } catch (e) {}
   }
 
@@ -1445,6 +1734,7 @@ try {
         var avgSpeed = state.totalDistanceM / elapsed;
         mAvg.textContent = fmtPaceDecimal(speedToPace(avgSpeed));
       }
+      if (state.dashboardFlipped) { updateDbMapMetrics(); }
       if (state.mode === "hold") {
         if (v !== null) { evaluateHoldMode(v); }
       } else if (state.mode === "listen") {
@@ -1496,10 +1786,7 @@ try {
         lGhostMarker = null;
       }
 
-      var bStart = byId("btn-start");
-      var bStop = byId("btn-stop");
-      if (bStart) { bStart.style.display = "none"; }
-      if (bStop) { bStop.style.display = "block"; }
+      setSwitchUI(true);
       setBanner("", "Suivi en cours...");
 
       requestWakeLock();
@@ -1525,10 +1812,7 @@ try {
         state.wakeLock.release().then(function () {}, function () {});
         state.wakeLock = null;
       }
-      var bStart = byId("btn-start");
-      var bStop = byId("btn-stop");
-      if (bStart) { bStart.style.display = "block"; }
-      if (bStop) { bStop.style.display = "none"; }
+      setSwitchUI(false);
       setBanner("", "Arrete");
       speak("Course arr\u00eat\u00e9e");
       saveCurrentRunToHistory();
@@ -1674,9 +1958,13 @@ try {
     profile_save: { fr: "Enregistrer", en: "Save" },
     language: { fr: "Langue", en: "Language" },
     m_dist: { fr: "km", en: "km" },
-    m_time: { fr: "duree", en: "duration" },
-    m_avg: { fr: "allure moy.", en: "avg. pace" },
-    coaching_type: { fr: "Type de coaching", en: "Coaching type" }
+    coaching_type: { fr: "Type de coaching", en: "Coaching type" },
+    zone_fc: { fr: "FC", en: "HR" },
+    zone_direction: { fr: "Direction", en: "Direction" },
+    zone_alt: { fr: "Altitude", en: "Altitude" },
+    zone_dist: { fr: "Distance", en: "Distance" },
+    zone_duree: { fr: "Duree", en: "Duration" },
+    zone_avg: { fr: "Allure moy.", en: "Avg. pace" }
   };
 
   var I18N_DOM_MAP = {
@@ -1692,9 +1980,13 @@ try {
     "lbl-profile-save": "profile_save",
     "lbl-language": "language",
     "lbl-m-dist": "m_dist",
-    "lbl-m-time": "m_time",
-    "lbl-m-avg": "m_avg",
-    "lbl-coaching-type": "coaching_type"
+    "lbl-coaching-type": "coaching_type",
+    "lbl-zone-fc": "zone_fc",
+    "lbl-zone-direction": "zone_direction",
+    "lbl-zone-alt": "zone_alt",
+    "lbl-zone-dist": "zone_dist",
+    "lbl-zone-duree": "zone_duree",
+    "lbl-zone-avg": "zone_avg"
   };
 
   function t(key) {
@@ -1934,6 +2226,9 @@ try {
   function handleAction(action, el) {
     if (action === "start") { doStart(); return; }
     if (action === "stop") { doStop(); return; }
+    if (action === "toggle-run") { if (state.running) { doStop(); } else { doStart(); } return; }
+    if (action === "dashboard-flip-map") { flipDashboardToMap(); return; }
+    if (action === "dashboard-flip-back") { flipDashboardToFront(false); return; }
     if (action === "force-reload") { forceReloadApp(); return; }
     if (action === "blackout") { doBlackoutOpen(); return; }
     if (action === "blackout-tap") { handleBlackoutTap(); return; }
